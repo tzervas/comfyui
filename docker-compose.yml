@@ -97,9 +97,18 @@ services:
       - "${NGINX_PORT:-80}:80"  # HTTP
       - "${NGINX_SSL_PORT:-443}:443"  # HTTPS
     volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx.conf.template:/etc/nginx/nginx.conf.template:ro
+      - ./tools/nginx-envsubst.sh:/docker-entrypoint.d/99-nginx-envsubst.sh:ro
+      - ./tools/healthcheck-ingress.sh:/app/healthcheck-ingress.sh:ro
       - ${HTPASSWD_FILE:-./.htpasswd}:/etc/nginx/.htpasswd:ro  # Optional auth file
       - ./ssl:/etc/ssl/certs/localhost:ro  # SSL certificates
+    environment:
+      - STACK_FQDN=${STACK_FQDN:-_}
+      - OLLAMA_UPSTREAM=${OLLAMA_UPSTREAM:-ollama:11434}
+      - COMFYUI_UPSTREAM=${COMFYUI_UPSTREAM:-comfyui:18188}
+      - PROBE_OLLAMA=${PROBE_OLLAMA:-1}
+      - PROBE_COMFYUI=${PROBE_COMFYUI:-1}
+      - MTLS_VERIFY=${MTLS_VERIFY:-off}
     deploy:
       resources:
         limits:
@@ -111,6 +120,12 @@ services:
     depends_on:
       - ollama
       - comfyui
+    healthcheck:
+      test: ["CMD", "/app/healthcheck-ingress.sh"]
+      interval: 15s
+      timeout: 8s
+      retries: 20
+      start_period: 30s
     restart: unless-stopped
 
   langchain:
@@ -200,21 +215,28 @@ services:
       - "${CODE_EXECUTOR_PORT:-5000}:5000"
     environment:
       - TMPDIR=/tmp/comfyui-ollama
+      - EXEC_TIMEOUT_SEC=${EXEC_TIMEOUT_SEC:-3}
+      - EXEC_MAX_OUTPUT_BYTES=${EXEC_MAX_OUTPUT_BYTES:-65536}
+      - EXEC_MAX_MEMORY_MB=${EXEC_MAX_MEMORY_MB:-256}
+      - EXEC_MAX_FILE_BYTES=${EXEC_MAX_FILE_BYTES:-1048576}
     deploy:
       resources:
         limits:
           cpus: '0.5'
           memory: 256M
+          pids: 128
         reservations:
           cpus: '0.2'
           memory: 128M
-    command: ["python", "-m", "http.server", "5000"]
+    command: ["python", "-m", "uvicorn", "code_executor.app:app", "--host", "0.0.0.0", "--port", "5000"]
     cap_drop: [ALL]
     read_only: true
+    security_opt:
+      - no-new-privileges:true
     tmpfs:
       - /tmp:exec,size=100m
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/"]
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
       interval: 30s
       timeout: 10s
       retries: 3

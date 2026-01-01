@@ -1,0 +1,17 @@
+# Local env overrides (never commit real env files)
+.env*
+!.env*.example
+
+# Secrets / auth
+.htpasswd
+
+# TLS / mTLS material (generated locally)
+ssl/
+
+# Build outputs
+target/
+
+# Local caches / logs
+.mypy_cache/
+test-logs/
+backups/

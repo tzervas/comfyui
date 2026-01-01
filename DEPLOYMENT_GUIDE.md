@@ -46,53 +46,26 @@ cd ~/comfyui
 
 ### 2. Configure Environment Variables
 
-**On Homelab** (`~comfyui/.env.homelab`):
+This repo intentionally does not commit real env files. Use the provided example templates:
+
+**On Homelab** (`~/comfyui/.env.homelab`):
 ```bash
-# Nginx Ports
-NGINX_HTTP_PORT=8081
-NGINX_HTTPS_PORT=8444
-
-# Authentication (set strong values in production)
-MODEL_VAULT_TOKEN=your_secure_model_vault_token_here
-REGISTRY_SECRET=your_secure_registry_secret_here
-
-# OAuth2 (optional, for user auth)
-OAUTH2_PROXY_CLIENT_ID=your_oauth_client_id
-OAUTH2_PROXY_CLIENT_SECRET=your_oauth_client_secret
-OAUTH2_PROXY_COOKIE_SECRET=your_cookie_secret
-
-# HuggingFace (optional, for gated models)
-HF_TOKEN=your_hf_token
+cp .env.homelab.example .env.homelab
+# Edit .env.homelab:
+# - STACK_FQDN
+# - OLLAMA_UPSTREAM / COMFYUI_UPSTREAM
+# - MODEL_VAULT_TOKEN / REGISTRY_SECRET
+# - NGINX_PORT / NGINX_SSL_PORT
 ```
 
 **On Desktop** (`~/comfyui/.env.desktop`):
 ```bash
-# Service Ports
-OLLAMA_PORT=11434
-COMFYUI_PORT=8188
-
-# Ollama Configuration
-OLLAMA_ORIGINS=http://192.168.1.170  # Homelab IP
-OLLAMA_MODELS=gemma3:1b,deepseek-r1:1.5b,smollm2:1.7b,llama3.1:8b,mistral:7b
-
-# GPU Resource Limits (to prevent hogging)
-OLLAMA_NUM_PARALLEL=2
-OLLAMA_MAX_LOADED_MODELS=2
-
-# ComfyUI Configuration
-COMFYUI_IMAGE=ghcr.io/ai-dock/comfyui:latest
-COMFYUI_EXTRA_ARGS=--normalvram
-
-# Registry Configuration (must match homelab)
-REGISTRY_URL=http://192.168.1.170:8081
-REGISTRY_SECRET=your_secure_registry_secret_here
-MODEL_VAULT_TOKEN=your_secure_model_vault_token_here
-
-# HuggingFace (optional)
-HF_TOKEN=your_hf_token
-
-# GPU Driver
-GPU_DRIVER=nvidia
+cp .env.desktop.example .env.desktop
+# Edit .env.desktop:
+# - REGISTRY_URL (homelab ingress)
+# - MODEL_VAULT_TOKEN / REGISTRY_SECRET (must match homelab)
+# - ADVERTISE_HOST / ADVERTISE_SCHEME
+# - GPU_DRIVER
 ```
 
 ### 3. Generate SSL Certificates (Homelab)
@@ -747,18 +720,18 @@ curl -X POST http://192.168.1.99:11434/api/generate \
 
 - `docker-compose.homelab.yml` - Homelab service definitions
 - `docker-compose.desktop.yml` - Desktop GPU worker definitions
-- `.env.homelab` - Homelab environment variables
-- `.env.desktop` - Desktop environment variables
+- `.env.homelab.example` - Homelab environment template (copy to `.env.homelab`)
+- `.env.desktop.example` - Desktop environment template (copy to `.env.desktop`)
 - `nginx.conf` - Nginx proxy configuration
 - `config/model-vault.yaml` - Registry configuration
-- `.htpasswd` - Nginx basic auth credentials
+- `.htpasswd` - Nginx basic auth credentials (local; do not commit)
 
 ### Ports Reference
 
 | Service | Host | Internal | External |
 |---------|------|----------|----------|
-| Nginx HTTP | Homelab | 80 | 8081 |
-| Nginx HTTPS | Homelab | 443 | 8444 |
+| Nginx HTTP | Homelab | 80 | `${NGINX_PORT}` |
+| Nginx HTTPS | Homelab | 443 | `${NGINX_SSL_PORT}` |
 | Model Vault | Homelab | 8080 | - |
 | LangChain | Homelab | 8000 | 8000 |
 | Code Executor | Homelab | 5000 | 5000 |
