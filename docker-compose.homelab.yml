@@ -1,0 +1,170 @@
+services:
+  # Rust API/Registry Service
+  model-vault:
+    build:
+      context: .
+      dockerfile: model-vault-Dockerfile
+    container_name: model-vault
+    volumes:
+      - model_vault_data:/var/lib/model-vault
+      - ./config/model-vault.yaml:/app/config/model-vault.yaml:ro
+    # ports:
+    #   - "8081:8080"
+    # environment:
+    #   - MODEL_VAULT_STORAGE_PATH=/var/lib/model-vault
+    #   - MODEL_VAULT_AUTH_TOKEN=${MODEL_VAULT_TOKEN}
+    #   - REGISTRY_SECRET=${REGISTRY_SECRET}
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    # healthcheck:
+    #   test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 3
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: nginx
+    ports:
+      - "${NGINX_PORT:-80}:80"  # HTTP
+      - "${NGINX_SSL_PORT:-443}:443"  # HTTPS
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ${HTPASSWD_FILE:-./.htpasswd}:/etc/nginx/.htpasswd:ro  # Optional auth file
+      - ./ssl:/etc/ssl/certs/localhost:ro  # SSL certificates
+    # depends_on:
+    #   - model-vault
+    #   - oauth2-proxy
+    restart: unless-stopped
+
+  oauth2-proxy:
+    image: quay.io/oauth2-proxy/oauth2-proxy:v7.4.0
+    container_name: oauth2-proxy
+    ports:
+      - "4180:4180"
+    environment:
+      - OAUTH2_PROXY_PROVIDER=google  # Or oidc, but for LAN, perhaps skip
+      - OAUTH2_PROXY_CLIENT_ID=dummy
+      - OAUTH2_PROXY_CLIENT_SECRET=dummy
+      - OAUTH2_PROXY_COOKIE_SECRET=dummy
+      - OAUTH2_PROXY_UPSTREAMS=http://model-vault:8080
+      - OAUTH2_PROXY_HTTP_ADDRESS=0.0.0.0:4180
+    restart: unless-stopped
+
+  langchain:
+    build:
+      context: .
+      dockerfile: Dockerfile.langchain
+    container_name: langchain
+    volumes:
+      - langchain_vectorstore:/app/vectorstore
+      - ./langchain_app.py:/app/langchain_app.py:ro
+      - ./tools/legacy/healthcheck-langchain.sh:/app/healthcheck-langchain.sh:ro
+      - tmp_trackers:/tmp/comfyui-ollama
+    ports:
+      - "${LANGCHAIN_PORT:-8000}:8000"
+    environment:
+      - OLLAMA_BASE_URL=http://akula-prime:11434  # Remote Ollama
+      - TMPDIR=/tmp/comfyui-ollama
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '1.0'
+          memory: 1G
+    healthcheck:
+      test: ["CMD", "/app/healthcheck-langchain.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    depends_on:
+      - model-vault
+    restart: unless-stopped
+
+  langflow:
+    image: langflowai/langflow:1.0.4
+    container_name: langflow
+    user: root
+    ports:
+      - "${LANGFLOW_PORT:-7860}:7860"
+    environment:
+      - LANGFLOW_AUTO_LOGIN=False
+      - LANGFLOW_SUPERUSER=admin
+      - LANGFLOW_SUPERUSER_PASSWORD=admin
+      - LANGFLOW_CONFIG_DIR=${LANGFLOW_CONFIG_DIR:-/app/data/langflow}
+      - LANGFLOW_DATABASE_URL=sqlite:///./langflow.db
+      - XDG_CACHE_HOME=/tmp/langflow-cache
+      - TMPDIR=/tmp/comfyui-ollama
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '1.0'
+          memory: 1G
+    volumes:
+      - langflow_data:/app/data
+      - ./tools/legacy/langflow-init.sh:/app/langflow-init.sh:ro
+      - ./tools/legacy/healthcheck-langflow.sh:/app/healthcheck-langflow.sh:ro
+      - tmp_trackers:/tmp/comfyui-ollama
+    tmpfs:
+      - /tmp:exec,size=1G
+    healthcheck:
+      test: ["CMD", "/app/healthcheck-langflow.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+    depends_on:
+      - model-vault
+    restart: unless-stopped
+
+  code_executor:
+    build:
+      context: .
+      dockerfile: Dockerfile.code_executor
+    container_name: code_executor
+    volumes:
+      - tmp_trackers:/tmp/comfyui-ollama
+    ports:
+      - "${CODE_EXECUTOR_PORT:-5000}:5000"
+    environment:
+      - TMPDIR=/tmp/comfyui-ollama
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.2'
+          memory: 128M
+    command: ["python", "-m", "http.server", "5000"]
+    cap_drop: [ALL]
+    read_only: true
+    tmpfs:
+      - /tmp:exec,size=100m
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    depends_on:
+      - model-vault
+    restart: unless-stopped
+
+volumes:
+  model_vault_data:
+  langchain_vectorstore:
+  langflow_data:
+  tmp_trackers:

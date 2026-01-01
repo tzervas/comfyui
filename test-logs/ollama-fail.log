@@ -1,0 +1,207 @@
+ollama  | Usage:
+ollama  |   ollama [flags]
+ollama  |   ollama [command]
+ollama  | 
+ollama  | Available Commands:
+ollama  |   serve       Start ollama
+ollama  |   create      Create a model from a Modelfile
+ollama  |   show        Show information for a model
+ollama  |   run         Run a model
+ollama  |   stop        Stop a running model
+ollama  |   pull        Pull a model from a registry
+ollama  |   push        Push a model to a registry
+ollama  |   list        List models
+ollama  |   ps          List running models
+ollama  |   cp          Copy a model
+ollama  |   rm          Remove a model
+ollama  |   help        Help about any command
+ollama  | 
+ollama  | Flags:
+ollama  |   -h, --help      help for ollama
+ollama  |   -v, --version   Show version information
+ollama  | 
+ollama  | Use "ollama [command] --help" for more information about a command.
+ollama  | Usage:
+ollama  |   ollama [flags]
+ollama  |   ollama [command]
+ollama  | 
+ollama  | Available Commands:
+ollama  |   serve       Start ollama
+ollama  |   create      Create a model from a Modelfile
+ollama  |   show        Show information for a model
+ollama  |   run         Run a model
+ollama  |   stop        Stop a running model
+ollama  |   pull        Pull a model from a registry
+ollama  |   push        Push a model to a registry
+ollama  |   list        List models
+ollama  |   ps          List running models
+ollama  |   cp          Copy a model
+ollama  |   rm          Remove a model
+ollama  |   help        Help about any command
+ollama  | 
+ollama  | Flags:
+ollama  |   -h, --help      help for ollama
+ollama  |   -v, --version   Show version information
+ollama  | 
+ollama  | Use "ollama [command] --help" for more information about a command.
+ollama  | Usage:
+ollama  |   ollama [flags]
+ollama  |   ollama [command]
+ollama  | 
+ollama  | Available Commands:
+ollama  |   serve       Start ollama
+ollama  |   create      Create a model from a Modelfile
+ollama  |   show        Show information for a model
+ollama  |   run         Run a model
+ollama  |   stop        Stop a running model
+ollama  |   pull        Pull a model from a registry
+ollama  |   push        Push a model to a registry
+ollama  |   list        List models
+ollama  |   ps          List running models
+ollama  |   cp          Copy a model
+ollama  |   rm          Remove a model
+ollama  |   help        Help about any command
+ollama  | 
+ollama  | Flags:
+ollama  |   -h, --help      help for ollama
+ollama  |   -v, --version   Show version information
+ollama  | 
+ollama  | Use "ollama [command] --help" for more information about a command.
+ollama  | Usage:
+ollama  |   ollama [flags]
+ollama  |   ollama [command]
+ollama  | 
+ollama  | Available Commands:
+ollama  |   serve       Start ollama
+ollama  |   create      Create a model from a Modelfile
+ollama  |   show        Show information for a model
+ollama  |   run         Run a model
+ollama  |   stop        Stop a running model
+ollama  |   pull        Pull a model from a registry
+ollama  |   push        Push a model to a registry
+ollama  |   list        List models
+ollama  |   ps          List running models
+ollama  |   cp          Copy a model
+ollama  |   rm          Remove a model
+ollama  |   help        Help about any command
+ollama  | 
+ollama  | Flags:
+ollama  |   -h, --help      help for ollama
+ollama  |   -v, --version   Show version information
+ollama  | 
+ollama  | Use "ollama [command] --help" for more information about a command.
+ollama  | Usage:
+ollama  |   ollama [flags]
+ollama  |   ollama [command]
+ollama  | 
+ollama  | Available Commands:
+ollama  |   serve       Start ollama
+ollama  |   create      Create a model from a Modelfile
+ollama  |   show        Show information for a model
+ollama  |   run         Run a model
+ollama  |   stop        Stop a running model
+ollama  |   pull        Pull a model from a registry
+ollama  |   push        Push a model to a registry
+ollama  |   list        List models
+ollama  |   ps          List running models
+ollama  |   cp          Copy a model
+ollama  |   rm          Remove a model
+ollama  |   help        Help about any command
+ollama  | 
+ollama  | Flags:
+ollama  |   -h, --help      help for ollama
+ollama  |   -v, --version   Show version information
+ollama  | 
+ollama  | Use "ollama [command] --help" for more information about a command.
+ollama  | Usage:
+ollama  |   ollama [flags]
+ollama  |   ollama [command]
+ollama  | 
+ollama  | Available Commands:
+ollama  |   serve       Start ollama
+ollama  |   create      Create a model from a Modelfile
+ollama  |   show        Show information for a model
+ollama  |   run         Run a model
+ollama  |   stop        Stop a running model
+ollama  |   pull        Pull a model from a registry
+ollama  |   push        Push a model to a registry
+ollama  |   list        List models
+ollama  |   ps          List running models
+ollama  |   cp          Copy a model
+ollama  |   rm          Remove a model
+ollama  |   help        Help about any command
+ollama  | 
+ollama  | Flags:
+ollama  |   -h, --help      help for ollama
+ollama  |   -v, --version   Show version information
+ollama  | 
+ollama  | Use "ollama [command] --help" for more information about a command.
+ollama  | Usage:
+ollama  |   ollama [flags]
+ollama  |   ollama [command]
+ollama  | 
+ollama  | Available Commands:
+ollama  |   serve       Start ollama
+ollama  |   create      Create a model from a Modelfile
+ollama  |   show        Show information for a model
+ollama  |   run         Run a model
+ollama  |   stop        Stop a running model
+ollama  |   pull        Pull a model from a registry
+ollama  |   push        Push a model to a registry
+ollama  |   list        List models
+ollama  |   ps          List running models
+ollama  |   cp          Copy a model
+ollama  |   rm          Remove a model
+ollama  |   help        Help about any command
+ollama  | 
+ollama  | Flags:
+ollama  |   -h, --help      help for ollama
+ollama  |   -v, --version   Show version information
+ollama  | 
+ollama  | Use "ollama [command] --help" for more information about a command.
+ollama  | Usage:
+ollama  |   ollama [flags]
+ollama  |   ollama [command]
+ollama  | 
+ollama  | Available Commands:
+ollama  |   serve       Start ollama
+ollama  |   create      Create a model from a Modelfile
+ollama  |   show        Show information for a model
+ollama  |   run         Run a model
+ollama  |   stop        Stop a running model
+ollama  |   pull        Pull a model from a registry
+ollama  |   push        Push a model to a registry
+ollama  |   list        List models
+ollama  |   ps          List running models
+ollama  |   cp          Copy a model
+ollama  |   rm          Remove a model
+ollama  |   help        Help about any command
+ollama  | 
+ollama  | Flags:
+ollama  |   -h, --help      help for ollama
+ollama  |   -v, --version   Show version information
+ollama  | 
+ollama  | Use "ollama [command] --help" for more information about a command.
+ollama  | Usage:
+ollama  |   ollama [flags]
+ollama  |   ollama [command]
+ollama  | 
+ollama  | Available Commands:
+ollama  |   serve       Start ollama
+ollama  |   create      Create a model from a Modelfile
+ollama  |   show        Show information for a model
+ollama  |   run         Run a model
+ollama  |   stop        Stop a running model
+ollama  |   pull        Pull a model from a registry
+ollama  |   push        Push a model to a registry
+ollama  |   list        List models
+ollama  |   ps          List running models
+ollama  |   cp          Copy a model
+ollama  |   rm          Remove a model
+ollama  |   help        Help about any command
+ollama  | 
+ollama  | Flags:
+ollama  |   -h, --help      help for ollama
+ollama  |   -v, --version   Show version information
+ollama  | 
+ollama  | Use "ollama [command] --help" for more information about a command.

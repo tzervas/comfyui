@@ -1,0 +1,107 @@
+# Desktop GPU Worker Stack - Bare Minimum Configuration
+# Provides GPU-accelerated AI services that register with homelab control plane
+# Services: Ollama (LLM inference), ComfyUI (image generation)
+# Management: Use tools/deploy-gpu-worker.sh and tools/teardown-gpu-worker.sh
+#
+# GPU Sharing: Docker shares GPU between host and containers (no exclusive lock)
+# Recommended: Configure Xorg to use iGPU for display, dGPU for containers
+# See docs/docker-gpu-sharing.md for setup details
+
+services:
+  ollama:
+    build:
+      context: .
+      dockerfile: Dockerfile.ollama
+    container_name: ollama
+    volumes:
+      - ollama_data:/root/.ollama
+      - ./tools/legacy/ollama-init.sh:/app/ollama-init.sh:ro
+      - ./healthcheck-ollama.sh:/app/healthcheck-ollama.sh:ro
+      - tmp_trackers:/tmp/comfyui-ollama
+    ports:
+      - "${OLLAMA_PORT:-11434}:11434"
+    network_mode: bridge
+    environment:
+      - OLLAMA_HOST=0.0.0.0:${OLLAMA_PORT:-11434}
+      - OLLAMA_ORIGINS=${OLLAMA_ORIGINS:-http://192.168.1.170}
+      - HTTPS_PROXY=${HTTPS_PROXY:-}
+      - OLLAMA_DEBUG=${OLLAMA_DEBUG:-false}
+      - OLLAMA_MODELS=${OLLAMA_MODELS:-gemma3:1b,deepseek-r1:1.5b,smollm2:1.7b,dolphin-llama3:8b,wizard-vicuna-uncensored:7b,llama2-uncensored:7b,llava:7b,moondream:1.8b,llama3.1:8b,mistral:7b,gemma:7b}
+      - TMPDIR=/tmp/comfyui-ollama
+      - MODEL_VAULT_TOKEN=${MODEL_VAULT_TOKEN}
+      - MODEL_VAULT_URL=http://192.168.1.170:8080  # Point to homelab
+      - HF_TOKEN=${HF_TOKEN}
+      - REGISTRY_URL=http://192.168.1.170:8080  # For registration
+      - REGISTRY_SECRET=${REGISTRY_SECRET}
+      # GPU resource management
+      - OLLAMA_NUM_PARALLEL=${OLLAMA_NUM_PARALLEL:-2}  # Limit concurrent requests
+      - OLLAMA_MAX_LOADED_MODELS=${OLLAMA_MAX_LOADED_MODELS:-2}  # Reduce VRAM usage
+    deploy:
+      resources:
+        limits:
+          cpus: '4.0'
+          memory: 8G
+        reservations:
+          cpus: '2.0'
+          memory: 4G
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    entrypoint: ["/bin/bash", "-c"]
+    command: "/app/ollama-init.sh && ollama serve"
+    healthcheck:
+      test: ["CMD", "/app/healthcheck-ollama.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    restart: unless-stopped
+
+  comfyui:
+    image: ${COMFYUI_IMAGE:-ghcr.io/ai-dock/comfyui:latest}
+    container_name: comfyui
+    network_mode: bridge
+    volumes:
+      - comfyui_models:/opt/storage
+      - comfyui_outputs:/opt/ComfyUI/output
+      - comfyui_user_profiles:/opt/ComfyUI/user_profiles
+      - ./tools/legacy/comfyui-init.sh:/app/comfyui-init.sh:ro
+      - ./healthcheck-comfyui.sh:/app/healthcheck-comfyui.sh:ro
+      - tmp_trackers:/tmp/comfyui-ollama
+    ports:
+      - "${COMFYUI_PORT:-8188}:18188"
+    environment:
+      # Reduce GPU memory usage for shared GPU scenarios
+      - COMFYUI_ARGS=--listen 0.0.0.0 --port 18188 --enable-cors-header --normalvram ${COMFYUI_EXTRA_ARGS:-}
+      - HF_TOKEN=${HF_TOKEN:-}
+      - COMFYUI_PATH=${COMFYUI_PATH:-/opt/ComfyUI}
+      - TMPDIR=/tmp/comfyui-ollama
+      - REGISTRY_URL=http://192.168.1.170:8080
+      - REGISTRY_SECRET=${REGISTRY_SECRET}
+    deploy:
+      resources:
+        limits:
+          cpus: '4.0'
+          memory: 8G
+        reservations:
+          cpus: '2.0'
+          memory: 4G
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "/app/healthcheck-comfyui.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+
+volumes:
+  ollama_data:
+  comfyui_models:
+  comfyui_outputs:
+  comfyui_user_profiles:
+  tmp_trackers:

@@ -1,0 +1,31 @@
+# Model Vault Configuration
+storage:
+  path: "/tmp"
+  max_size_gb: 500
+
+server:
+  host: "0.0.0.0"
+  port: 8080
+  auth_token: "test_model_vault_token"
+
+models:
+  registries:
+    - name: "vault"
+      url: "http://model-vault:8080"
+      priority: 1
+      auth_required: true
+
+security:
+  vault:
+    level: "local"
+    encryption: false
+  ollama:
+    level: "trusted"
+    encryption: false
+  huggingface:
+    level: "external"
+    encryption: true
+    verify_signatures: true
+
+database:
+  url: "sqlite::memory:"
