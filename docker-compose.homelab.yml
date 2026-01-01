@@ -6,7 +6,7 @@ services:
       dockerfile: model-vault-Dockerfile
     container_name: model-vault
     volumes:
-      - model_vault_data:/var/lib/model-vault
+      - ${MODEL_VAULT_DATA_DIR:-model_vault_data}:/var/lib/model-vault
       - ./config/model-vault.yaml:/app/config/model-vault.yaml:ro
     # ports:
     #   - "8081:8080"
@@ -14,6 +14,17 @@ services:
     #   - MODEL_VAULT_STORAGE_PATH=/var/lib/model-vault
     #   - MODEL_VAULT_AUTH_TOKEN=${MODEL_VAULT_TOKEN}
     #   - REGISTRY_SECRET=${REGISTRY_SECRET}
+    environment:
+      - MODEL_VAULT_TOKEN=${MODEL_VAULT_TOKEN}
+      - REGISTRY_SECRET=${REGISTRY_SECRET}
+      - MODEL_VAULT_STORAGE__PATH=${MODEL_VAULT_STORAGE__PATH:-/var/lib/model-vault}
+      - MODEL_VAULT_DATABASE__URL=${MODEL_VAULT_DATABASE__URL:-sqlite:/var/lib/model-vault/model-vault.db}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
     deploy:
       resources:
         limits:
@@ -36,19 +47,35 @@ services:
       - "${NGINX_PORT:-80}:80"  # HTTP
       - "${NGINX_SSL_PORT:-443}:443"  # HTTPS
     volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx.conf.template:/etc/nginx/nginx.conf.template:ro
+      - ./tools/nginx-envsubst.sh:/docker-entrypoint.d/99-nginx-envsubst.sh:ro
+      - ./tools/healthcheck-ingress.sh:/app/healthcheck-ingress.sh:ro
       - ${HTPASSWD_FILE:-./.htpasswd}:/etc/nginx/.htpasswd:ro  # Optional auth file
       - ./ssl:/etc/ssl/certs/localhost:ro  # SSL certificates
-    # depends_on:
-    #   - model-vault
-    #   - oauth2-proxy
+    environment:
+      - STACK_FQDN=${STACK_FQDN:-_}
+      - OLLAMA_UPSTREAM=${OLLAMA_UPSTREAM:-ollama:11434}
+      - COMFYUI_UPSTREAM=${COMFYUI_UPSTREAM:-comfyui:18188}
+      - PROBE_OLLAMA=${PROBE_OLLAMA:-0}
+      - PROBE_COMFYUI=${PROBE_COMFYUI:-0}
+      - MTLS_VERIFY=${MTLS_VERIFY:-off}
+      - SSO_ENABLED=${SSO_ENABLED:-0}
+      - KEYCLOAK_ENABLED=${KEYCLOAK_ENABLED:-0}
+      - MODEL_VAULT_MODE=${MODEL_VAULT_MODE:-local}
+    depends_on:
+      - model-vault
+    healthcheck:
+      test: ["CMD", "/app/healthcheck-ingress.sh"]
+      interval: 15s
+      timeout: 8s
+      retries: 20
+      start_period: 30s
     restart: unless-stopped
 
   oauth2-proxy:
     image: quay.io/oauth2-proxy/oauth2-proxy:v7.4.0
     container_name: oauth2-proxy
-    ports:
-      - "4180:4180"
+    # No host ports; access via ingress if enabled
     environment:
       - OAUTH2_PROXY_PROVIDER=google  # Or oidc, but for LAN, perhaps skip
       - OAUTH2_PROXY_CLIENT_ID=dummy
@@ -68,8 +95,7 @@ services:
       - ./langchain_app.py:/app/langchain_app.py:ro
       - ./tools/legacy/healthcheck-langchain.sh:/app/healthcheck-langchain.sh:ro
       - tmp_trackers:/tmp/comfyui-ollama
-    ports:
-      - "${LANGCHAIN_PORT:-8000}:8000"
+    # No host ports; access via ingress
     environment:
       - OLLAMA_BASE_URL=http://akula-prime:11434  # Remote Ollama
       - TMPDIR=/tmp/comfyui-ollama
@@ -95,8 +121,7 @@ services:
     image: langflowai/langflow:1.0.4
     container_name: langflow
     user: root
-    ports:
-      - "${LANGFLOW_PORT:-7860}:7860"
+    # No host ports; access via ingress
     environment:
       - LANGFLOW_AUTO_LOGIN=False
       - LANGFLOW_SUPERUSER=admin
@@ -137,8 +162,7 @@ services:
     container_name: code_executor
     volumes:
       - tmp_trackers:/tmp/comfyui-ollama
-    ports:
-      - "${CODE_EXECUTOR_PORT:-5000}:5000"
+    # No host ports; access via ingress
     environment:
       - TMPDIR=/tmp/comfyui-ollama
     deploy:

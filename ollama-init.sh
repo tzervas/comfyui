@@ -79,10 +79,23 @@ echo "Ollama models initialization complete."
 # Register with registry
 if [ -n "$REGISTRY_URL" ] && [ -n "$REGISTRY_SECRET" ]; then
   echo "Registering Ollama service with registry..."
-  curl -X POST "$REGISTRY_URL/register" \
+  CURL_MTLS_ARGS=()
+  if [ -n "${REGISTRY_CA:-}" ]; then
+    CURL_MTLS_ARGS+=(--cacert "$REGISTRY_CA")
+  elif [ -n "${REGISTRY_MTLS_CA:-}" ]; then
+    CURL_MTLS_ARGS+=(--cacert "$REGISTRY_MTLS_CA")
+  fi
+  if [ -n "$REGISTRY_MTLS_CERT" ] && [ -n "$REGISTRY_MTLS_KEY" ]; then
+    CURL_MTLS_ARGS+=(--cert "$REGISTRY_MTLS_CERT" --key "$REGISTRY_MTLS_KEY")
+  fi
+
+  ADVERTISE_HOST=${ADVERTISE_HOST:-192.168.1.99}
+  ADVERTISE_SCHEME=${ADVERTISE_SCHEME:-http}
+
+  curl "${CURL_MTLS_ARGS[@]}" -X POST "$REGISTRY_URL/register" \
     -H "Content-Type: application/json" \
     -H "X-Registry-Secret: $REGISTRY_SECRET" \
-    -d "{\"service\": \"ollama\", \"endpoint\": \"http://192.168.1.99:$OLLAMA_PORT\", \"capabilities\": {\"gpu\": true, \"vram_gb\": 24, \"models_loaded\": [\"$OLLAMA_MODELS\"]}}" || echo "Registration failed"
+    -d "{\"service\": \"ollama\", \"endpoint\": \"${ADVERTISE_SCHEME}://${ADVERTISE_HOST}:$OLLAMA_PORT\", \"capabilities\": {\"gpu\": true, \"vram_gb\": 24, \"models_loaded\": [\"$OLLAMA_MODELS\"]}}" || echo "Registration failed"
 fi
 
 # Stop the background Ollama

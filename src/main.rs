@@ -5,14 +5,10 @@ mod models;
 mod storage;
 
 use axum::{
-    extract::{Path, Query, State},
-    http::StatusCode,
-    response::Json,
-    routing::{delete, get, post},
+    routing::{get, post},
     Router,
 };
 use clap::{Parser, Subcommand};
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tower_http::cors::CorsLayer;
@@ -60,6 +56,7 @@ enum Commands {
 pub struct AppState {
     config: Config,
     database: Arc<Mutex<Database>>,
+    #[allow(dead_code)]
     storage: Arc<Storage>,
 }
 

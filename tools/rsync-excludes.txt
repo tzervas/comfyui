@@ -1,0 +1,8 @@
+.git/
+.gitignore
+target/
+**/__pycache__/
+.mypy_cache/
+test-logs/
+backups/
+*.log

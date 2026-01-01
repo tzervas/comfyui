@@ -108,8 +108,18 @@ Services automatically register with homelab (192.168.1.170:8080) on startup:
 Required variables in `.env.desktop`:
 ```bash
 # Registry Configuration
-REGISTRY_URL=http://192.168.1.170:8080
+REGISTRY_URL=https://homelab.lan:8443
 REGISTRY_SECRET=<your-secret>
+
+# Worker advertised endpoint (what homelab will call back to)
+ADVERTISE_HOST=192.168.1.99
+ADVERTISE_SCHEME=http
+
+# Optional mTLS client settings for registry access
+# These paths are mounted from ./ssl in docker-compose.desktop.yml
+REGISTRY_MTLS_CA=/etc/ssl/registry/ca.pem
+REGISTRY_MTLS_CERT=/etc/ssl/registry/clients/gpu-worker.pem
+REGISTRY_MTLS_KEY=/etc/ssl/registry/clients/gpu-worker-key.pem
 
 # Model Vault
 MODEL_VAULT_URL=http://192.168.1.170:8080

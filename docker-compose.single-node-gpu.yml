@@ -1,0 +1,289 @@
+services:
+  keycloak-db:
+    image: postgres:16-alpine
+    container_name: keycloak-db
+    profiles: ["keycloak"]
+    environment:
+      - POSTGRES_DB=${KEYCLOAK_DB_NAME:-keycloak}
+      - POSTGRES_USER=${KEYCLOAK_DB_USER:-keycloak}
+      - POSTGRES_PASSWORD=${KEYCLOAK_DB_PASSWORD:-keycloak}
+    volumes:
+      - keycloak_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${KEYCLOAK_DB_USER:-keycloak} -d ${KEYCLOAK_DB_NAME:-keycloak}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0.5
+    container_name: keycloak
+    profiles: ["keycloak"]
+    command: ["start-dev", "--import-realm"]
+    depends_on:
+      - keycloak-db
+    volumes:
+      - ./config/keycloak:/opt/keycloak/data/import:ro
+    environment:
+      - KC_DB=postgres
+      - KC_DB_URL_HOST=keycloak-db
+      - KC_DB_URL_DATABASE=${KEYCLOAK_DB_NAME:-keycloak}
+      - KC_DB_USERNAME=${KEYCLOAK_DB_USER:-keycloak}
+      - KC_DB_PASSWORD=${KEYCLOAK_DB_PASSWORD:-keycloak}
+
+      # Serve under /keycloak behind nginx
+      - KC_HTTP_ENABLED=true
+      - KC_HTTP_RELATIVE_PATH=/keycloak
+      - KC_PROXY=edge
+      - KC_HOSTNAME=${STACK_FQDN}
+      - KC_HOSTNAME_STRICT=false
+      - KC_HOSTNAME_STRICT_HTTPS=false
+
+      # Keycloak admin console bootstrap user
+      - KC_BOOTSTRAP_ADMIN_USERNAME=${KEYCLOAK_BOOTSTRAP_ADMIN_USERNAME:-kcadmin}
+      - KC_BOOTSTRAP_ADMIN_PASSWORD=${KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD:-}
+    restart: unless-stopped
+
+  model-vault:
+    profiles: ["local-vault"]
+    build:
+      context: .
+      dockerfile: model-vault-Dockerfile
+    container_name: model-vault
+    volumes:
+      - model_vault_data:/var/lib/model-vault
+      - ./config/model-vault.yaml:/app/config/model-vault.yaml:ro
+    environment:
+      - MODEL_VAULT_TOKEN=${MODEL_VAULT_TOKEN}
+      - REGISTRY_SECRET=${REGISTRY_SECRET}
+      - MODEL_VAULT_STORAGE__PATH=${MODEL_VAULT_STORAGE__PATH:-/var/lib/model-vault}
+      - MODEL_VAULT_DATABASE__URL=${MODEL_VAULT_DATABASE__URL:-sqlite:/var/lib/model-vault/model-vault.db}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+    restart: unless-stopped
+
+  ollama:
+    build:
+      context: .
+      dockerfile: Dockerfile.ollama
+    container_name: ollama
+    volumes:
+      - ollama_data:/root/.ollama
+      - ./ollama-init.sh:/app/ollama-init.sh:ro
+      - ./healthcheck-ollama.sh:/app/healthcheck-ollama.sh:ro
+      - tmp_trackers:/tmp/comfyui-ollama
+      - ./ssl/ca.pem:/etc/ssl/certs/stack/ca.pem:ro
+    environment:
+      - OLLAMA_PORT=${OLLAMA_PORT:-11434}
+      - OLLAMA_HOST=0.0.0.0:${OLLAMA_PORT:-11434}
+      - OLLAMA_ORIGINS=${OLLAMA_ORIGINS:-*}
+      - HTTPS_PROXY=${HTTPS_PROXY:-}
+      - OLLAMA_DEBUG=${OLLAMA_DEBUG:-false}
+      - OLLAMA_MODELS=${OLLAMA_MODELS:-gemma3:1b,deepseek-r1:1.5b}
+      - OLLAMA_NUM_PARALLEL=${OLLAMA_NUM_PARALLEL:-1}
+      - OLLAMA_MAX_LOADED_MODELS=${OLLAMA_MAX_LOADED_MODELS:-1}
+      - TMPDIR=/tmp/comfyui-ollama
+      - MODEL_VAULT_TOKEN=${MODEL_VAULT_TOKEN}
+      - MODEL_VAULT_URL=${MODEL_VAULT_URL:-https://homelab.lan:8443/model-vault}
+      - REGISTRY_URL=${REGISTRY_URL:-https://homelab.lan:8443}
+      - REGISTRY_SECRET=${REGISTRY_SECRET}
+      - REGISTRY_CA=${REGISTRY_CA:-/etc/ssl/certs/stack/ca.pem}
+      - ADVERTISE_HOST=${STACK_FQDN}
+      - ADVERTISE_SCHEME=http
+      - HF_TOKEN=${HF_TOKEN:-}
+    entrypoint: ["/bin/bash", "-c"]
+    command: "/app/ollama-init.sh && ollama serve"
+    healthcheck:
+      test: ["CMD", "/app/healthcheck-ollama.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    restart: unless-stopped
+
+  comfyui:
+    image: ${COMFYUI_IMAGE:-ghcr.io/ai-dock/comfyui:latest-cpu}
+    container_name: comfyui
+    volumes:
+      - comfyui_models:/opt/storage
+      - comfyui_outputs:/opt/ComfyUI/output
+      - comfyui_user_profiles:/opt/ComfyUI/user_profiles
+      - ./comfyui-init.sh:/app/comfyui-init.sh:ro
+      - ./healthcheck-comfyui.sh:/app/healthcheck-comfyui.sh:ro
+      - ./assets/comfyui/workflows:/app/assets/workflows:ro
+      - tmp_trackers:/tmp/comfyui-ollama
+      - ./ssl/ca.pem:/etc/ssl/certs/stack/ca.pem:ro
+    environment:
+      - COMFYUI_ARGS=--listen 0.0.0.0 --port 18188 --enable-cors-header ${COMFYUI_EXTRA_ARGS:-}
+      - HF_TOKEN=${HF_TOKEN:-}
+      - COMFYUI_PATH=${COMFYUI_PATH:-/opt/ComfyUI}
+      - TMPDIR=/tmp/comfyui-ollama
+      - COMFYUI_PORT=18188
+      - REGISTRY_URL=${REGISTRY_URL:-https://homelab.lan:8443}
+      - REGISTRY_SECRET=${REGISTRY_SECRET}
+      - REGISTRY_CA=${REGISTRY_CA:-/etc/ssl/certs/stack/ca.pem}
+      - ADVERTISE_HOST=${STACK_FQDN}
+      - ADVERTISE_SCHEME=http
+    healthcheck:
+      test: ["CMD", "/app/healthcheck-comfyui.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+
+  langchain:
+    build:
+      context: .
+      dockerfile: Dockerfile.langchain
+    container_name: langchain
+    volumes:
+      - langchain_vectorstore:/app/vectorstore
+      - ./langchain_app.py:/app/langchain_app.py:ro
+      - ./healthcheck-langchain.sh:/app/healthcheck-langchain.sh:ro
+      - tmp_trackers:/tmp/comfyui-ollama
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - TMPDIR=/tmp/comfyui-ollama
+    healthcheck:
+      test: ["CMD", "/app/healthcheck-langchain.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    depends_on:
+      - ollama
+    restart: unless-stopped
+
+  langflow:
+    image: langflowai/langflow:1.0.4
+    container_name: langflow
+    user: root
+    environment:
+      - LANGFLOW_AUTO_LOGIN=False
+      - LANGFLOW_SUPERUSER=admin
+      - LANGFLOW_SUPERUSER_PASSWORD=admin
+      - LANGFLOW_CONFIG_DIR=${LANGFLOW_CONFIG_DIR:-/app/data/langflow}
+      - LANGFLOW_DATABASE_URL=sqlite:///./langflow.db
+      - XDG_CACHE_HOME=/tmp/langflow-cache
+      - TMPDIR=/tmp/comfyui-ollama
+    volumes:
+      - langflow_data:/app/data
+      - ./langflow-init.sh:/app/langflow-init.sh:ro
+      - ./healthcheck-langflow.sh:/app/healthcheck-langflow.sh:ro
+      - tmp_trackers:/tmp/comfyui-ollama
+    tmpfs:
+      - /tmp:exec,size=1G
+    healthcheck:
+      test: ["CMD", "/app/healthcheck-langflow.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+    depends_on:
+      - ollama
+      - langchain
+    restart: unless-stopped
+
+  code_executor:
+    build:
+      context: .
+      dockerfile: Dockerfile.code_executor
+    container_name: code_executor
+    volumes:
+      - tmp_trackers:/tmp/comfyui-ollama
+    environment:
+      - TMPDIR=/tmp/comfyui-ollama
+      - EXEC_TIMEOUT_SEC=${EXEC_TIMEOUT_SEC:-3}
+      - EXEC_MAX_OUTPUT_BYTES=${EXEC_MAX_OUTPUT_BYTES:-65536}
+      - EXEC_MAX_MEMORY_MB=${EXEC_MAX_MEMORY_MB:-256}
+      - EXEC_MAX_FILE_BYTES=${EXEC_MAX_FILE_BYTES:-1048576}
+    command: ["python", "-m", "uvicorn", "code_executor.app:app", "--host", "0.0.0.0", "--port", "5000"]
+    cap_drop: [ALL]
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    tmpfs:
+      - /tmp:exec,size=100m
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    depends_on:
+      - ollama
+    restart: unless-stopped
+
+  oauth2-proxy:
+    image: quay.io/oauth2-proxy/oauth2-proxy:v7.6.0
+    container_name: oauth2-proxy
+    profiles: ["sso"]
+    command: ["--config=/etc/oauth2-proxy/oauth2-proxy.cfg"]
+    volumes:
+      - ./config/oauth2-proxy/oauth2-proxy.cfg:/etc/oauth2-proxy/oauth2-proxy.cfg:ro
+      - ./config/oauth2-proxy/allowed_emails.txt:/etc/oauth2-proxy/allowed_emails.txt:ro
+    environment:
+      - OAUTH2_PROXY_PROVIDER=oidc
+      - OAUTH2_PROXY_OIDC_ISSUER_URL=${OIDC_ISSUER_URL:-}
+      - OAUTH2_PROXY_CLIENT_ID=${OAUTH2_PROXY_CLIENT_ID:-}
+      - OAUTH2_PROXY_CLIENT_SECRET=${OAUTH2_PROXY_CLIENT_SECRET:-}
+      - OAUTH2_PROXY_COOKIE_SECRET=${OAUTH2_PROXY_COOKIE_SECRET:-}
+      - OAUTH2_PROXY_REDIRECT_URL=${OAUTH2_PROXY_REDIRECT_URL:-}
+      - OAUTH2_PROXY_HTTP_ADDRESS=0.0.0.0:4180
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: nginx
+    ports:
+      - "${NGINX_PORT:-8080}:80"
+      - "${NGINX_SSL_PORT:-8443}:443"
+    volumes:
+      - ./nginx.conf.template:/etc/nginx/nginx.conf.template:ro
+      - ./tools/nginx-envsubst.sh:/docker-entrypoint.d/99-nginx-envsubst.sh:ro
+      - ./tools/healthcheck-ingress.sh:/app/healthcheck-ingress.sh:ro
+      - ${HTPASSWD_FILE:-./.htpasswd}:/etc/nginx/.htpasswd:ro
+      - ./ssl:/etc/ssl/certs/localhost:ro
+      - ./web:/usr/share/nginx/html:ro
+    environment:
+      - STACK_FQDN=${STACK_FQDN:-_}
+      - OLLAMA_UPSTREAM=${OLLAMA_UPSTREAM:-ollama:11434}
+      - COMFYUI_UPSTREAM=${COMFYUI_UPSTREAM:-comfyui:18188}
+      - PROBE_OLLAMA=${PROBE_OLLAMA:-1}
+      - PROBE_COMFYUI=${PROBE_COMFYUI:-1}
+      - MTLS_VERIFY=${MTLS_VERIFY:-off}
+      - REGISTRY_SECRET=${REGISTRY_SECRET}
+      - SSO_ENABLED=${SSO_ENABLED:-0}
+      - OAUTH2_PROXY_UPSTREAM=${OAUTH2_PROXY_UPSTREAM:-oauth2-proxy:4180}
+      - MODEL_VAULT_MODE=${MODEL_VAULT_MODE:-remote}
+      - MODEL_VAULT_REMOTE_BASE_URL=${MODEL_VAULT_REMOTE_BASE_URL:-https://homelab.lan:8443}
+      - MODEL_VAULT_SSL_VERIFY=${MODEL_VAULT_SSL_VERIFY:-on}
+      - MODEL_VAULT_SSL_TRUSTED_CERT=${MODEL_VAULT_SSL_TRUSTED_CERT:-/etc/ssl/certs/localhost/ca.pem}
+      - KEYCLOAK_ENABLED=${KEYCLOAK_ENABLED:-0}
+    depends_on:
+      - ollama
+      - comfyui
+    healthcheck:
+      test: ["CMD", "/app/healthcheck-ingress.sh"]
+      interval: 15s
+      timeout: 8s
+      retries: 20
+      start_period: 30s
+    restart: unless-stopped
+
+volumes:
+  keycloak_db_data:
+  model_vault_data:
+  ollama_data:
+  comfyui_models:
+  comfyui_outputs:
+  comfyui_user_profiles:
+  langchain_vectorstore:
+  langflow_data:
+  tmp_trackers:

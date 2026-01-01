@@ -99,4 +99,5 @@ Use `./manage.sh` for all operations:
 - Check service health: `./manage.sh status`
 - View logs: `./manage.sh logs [service]`
 - Test APIs: `./test-apis.sh all`
+- Rigorous validation (ingress/API + CLI): see `docs/validation.md`
 - Restart services: `./manage.sh restart`

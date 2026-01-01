@@ -1,12 +1,12 @@
 # Model Vault Configuration
 storage:
-  path: "/tmp"
+  path: "/var/lib/model-vault"
   max_size_gb: 500
 
 server:
   host: "0.0.0.0"
   port: 8080
-  auth_token: "test_model_vault_token"
+  auth_token: "CHANGE_ME"  # Override via env: MODEL_VAULT_TOKEN
 
 models:
   registries:
@@ -28,4 +28,4 @@ security:
     verify_signatures: true
 
 database:
-  url: "sqlite::memory:"
+  url: "sqlite:/var/lib/model-vault/model-vault.db"

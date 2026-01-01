@@ -85,6 +85,30 @@ echo "📊 Service Status:"
 docker compose -f docker-compose.desktop.yml ps
 
 echo ""
+echo "⏳ Waiting for services to be healthy..."
+ids=$(docker compose -f docker-compose.desktop.yml ps -q)
+deadline=$((SECONDS+240))
+while [ $SECONDS -lt $deadline ]; do
+    all_ok=1
+    for id in $ids; do
+        status=$(docker inspect -f '{{.State.Status}}' "$id" 2>/dev/null || echo unknown)
+        health=$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$id" 2>/dev/null || echo unknown)
+        if [ "$status" != "running" ]; then
+            all_ok=0
+        fi
+        if [ "$health" != "none" ] && [ "$health" != "healthy" ]; then
+            all_ok=0
+        fi
+    done
+    if [ $all_ok -eq 1 ]; then
+        echo "✅ Services are running/healthy"
+        break
+    fi
+    echo "⏳ Waiting..."
+    sleep 5
+done
+
+echo ""
 echo "✅ GPU Worker deployed successfully!"
 echo ""
 echo "🔍 Check logs with:"

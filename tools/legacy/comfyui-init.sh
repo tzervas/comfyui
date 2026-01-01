@@ -85,8 +85,19 @@ echo "ComfyUI custom nodes and workflows ready."
 # Register with registry
 if [ -n "$REGISTRY_URL" ] && [ -n "$REGISTRY_SECRET" ]; then
   echo "Registering ComfyUI service with registry..."
-  curl -X POST "$REGISTRY_URL/register" \
+  CURL_MTLS_ARGS=()
+  if [ -n "$REGISTRY_MTLS_CA" ] && [ -f "$REGISTRY_MTLS_CA" ]; then
+    CURL_MTLS_ARGS+=(--cacert "$REGISTRY_MTLS_CA")
+  fi
+  if [ -n "$REGISTRY_MTLS_CERT" ] && [ -n "$REGISTRY_MTLS_KEY" ] && [ -f "$REGISTRY_MTLS_CERT" ] && [ -f "$REGISTRY_MTLS_KEY" ]; then
+    CURL_MTLS_ARGS+=(--cert "$REGISTRY_MTLS_CERT" --key "$REGISTRY_MTLS_KEY")
+  fi
+
+  ADVERTISE_HOST=${ADVERTISE_HOST:-192.168.1.99}
+  ADVERTISE_SCHEME=${ADVERTISE_SCHEME:-http}
+
+  curl "${CURL_MTLS_ARGS[@]}" -X POST "$REGISTRY_URL/register" \
     -H "Content-Type: application/json" \
     -H "X-Registry-Secret: $REGISTRY_SECRET" \
-    -d "{\"service\": \"comfyui\", \"endpoint\": \"http://192.168.1.99:${COMFYUI_PORT:-8188}\", \"capabilities\": {\"gpu\": true, \"vram_gb\": 24}}" || echo "Registration failed"
+    -d "{\"service\": \"comfyui\", \"endpoint\": \"${ADVERTISE_SCHEME}://${ADVERTISE_HOST}:${COMFYUI_PORT:-8188}\", \"capabilities\": {\"gpu\": true, \"vram_gb\": 24}}" || echo "Registration failed"
 fi

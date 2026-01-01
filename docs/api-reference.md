@@ -24,6 +24,18 @@ Generate response with RAG context.
 ### GET /health
 Health check endpoint.
 
+### POST /agent/run
+Run a simple multi-agent flow (planner -> optional code execution -> responder).
+
+**Request:**
+```json
+{
+  "prompt": "Compute 19*23",
+  "model": "gemma3:1b",
+  "allow_code_execution": true
+}
+```
+
 ## Ollama API
 
 ### POST /api/generate
@@ -64,14 +76,28 @@ List available models.
 ## Code Executor API
 
 ### POST /
-Execute Python code.
+Execute Python code in a locked-down container with time and resource limits.
 
-**Request Body:** Python code as text/plain
+**Request Body:**
+- `text/plain`: raw Python code
+- or JSON: `{ "code": "..." }`
 
-**Response:** Execution output
+**Response:**
+```json
+{
+  "exit_code": 0,
+  "duration_ms": 12,
+  "stdout": "hello\n",
+  "stderr": "",
+  "truncated": false
+}
+```
 
 ### GET /
 Status check.
+
+### GET /health
+Health check.
 
 ## ComfyUI API
 ComfyUI provides WebSocket API for workflow execution.

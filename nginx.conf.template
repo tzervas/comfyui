@@ -1,0 +1,323 @@
+events {
+    worker_connections 1024;
+}
+
+http {
+    # Docker embedded DNS (dynamic service discovery). This prevents stale
+    # upstream IPs when containers are recreated.
+    resolver 127.0.0.11 ipv6=off valid=10s;
+    resolver_timeout 2s;
+
+    # SSL configuration
+    ssl_certificate /etc/ssl/certs/localhost/cert.pem;
+    ssl_certificate_key /etc/ssl/certs/localhost/key.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+
+    # Optional mTLS (client cert auth)
+    # - Set MTLS_VERIFY=off|optional|on
+    # - If using mTLS, mount CA at /etc/ssl/certs/localhost/ca.pem
+    ${MTLS_CA_DIRECTIVE}
+    ssl_verify_client ${MTLS_VERIFY};
+    ssl_verify_depth 2;
+
+    # Upstreams (service discovery via Docker DNS by default)
+    upstream ollama_backend {
+        zone ollama_backend 64k;
+        server ${OLLAMA_UPSTREAM} resolve;
+        keepalive 32;
+    }
+
+    upstream comfyui_backend {
+        zone comfyui_backend 64k;
+        server ${COMFYUI_UPSTREAM} resolve;
+        keepalive 32;
+    }
+
+    upstream code_executor_backend {
+        zone code_executor_backend 64k;
+        server code_executor:5000 resolve;
+        keepalive 16;
+    }
+
+    upstream langchain_backend {
+        zone langchain_backend 64k;
+        server langchain:8000 resolve;
+        keepalive 32;
+    }
+
+    upstream langflow_backend {
+        zone langflow_backend 64k;
+        server langflow:7860 resolve;
+        keepalive 32;
+    }
+
+    # OAuth2/OIDC forward auth (oauth2-proxy)
+    upstream oauth2_proxy_backend {
+        zone oauth2_proxy_backend 64k;
+        server ${OAUTH2_PROXY_UPSTREAM} resolve;
+        keepalive 16;
+    }
+
+    upstream model_vault_backend {
+        zone model_vault_backend 64k;
+        server model-vault:8080 resolve;
+        keepalive 16;
+    }
+
+    upstream keycloak_backend {
+        zone keycloak_backend 64k;
+        server keycloak:8080 resolve;
+        keepalive 16;
+    }
+
+    # Gzip compression
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+
+    server {
+        listen 80;
+        server_name ${STACK_FQDN};
+
+        # Unauthenticated liveness endpoint (used by container healthchecks)
+        location = /healthz {
+            add_header Content-Type text/plain;
+            return 200 "ok\n";
+        }
+
+        # Keycloak IdP (must not be behind AUTH_GATE)
+        location /keycloak/ {
+            proxy_pass http://keycloak_backend;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        # Landing page
+        location = / {
+            ${AUTH_GATE}
+            root /usr/share/nginx/html;
+            index index.html;
+        }
+
+        ${SSO_LOCATIONS}
+
+        # Ollama API proxy
+        location /ollama/ {
+            proxy_pass http://ollama_backend/;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            ${AUTH_GATE}
+        }
+
+        # ComfyUI UI proxy with websocket support
+        location /comfyui/ {
+            proxy_pass http://comfyui_backend/;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_read_timeout 86400;
+            ${AUTH_GATE}
+        }
+
+        # LangChain API proxy
+        location /langchain/ {
+            proxy_pass http://langchain_backend/;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_connect_timeout 90s;
+            proxy_send_timeout 300s;
+            proxy_read_timeout 300s;
+            ${AUTH_GATE}
+        }
+
+        # LangFlow UI proxy
+        location /langflow/ {
+            proxy_pass http://langflow_backend/;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_read_timeout 86400;
+            ${AUTH_GATE}
+        }
+
+        # Code Executor API proxy
+        location /code-executor/ {
+            proxy_pass http://code_executor_backend/;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_connect_timeout 30s;
+            proxy_send_timeout 60s;
+            proxy_read_timeout 60s;
+            ${AUTH_GATE}
+        }
+
+        # Model Vault API (protected)
+        location /model-vault/ {
+            proxy_pass ${MODEL_VAULT_API_PROXY_PASS};
+            ${MODEL_VAULT_PROXY_SSL}
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            ${AUTH_GATE}
+        }
+
+        # Registry APIs (worker registration/discovery)
+        location /register {
+            if ($http_x_registry_secret != "${REGISTRY_SECRET}") { return 403; }
+            proxy_pass ${MODEL_VAULT_REGISTER_PROXY_PASS};
+            ${MODEL_VAULT_PROXY_SSL}
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        location /discover {
+            if ($http_x_registry_secret != "${REGISTRY_SECRET}") { return 403; }
+            proxy_pass ${MODEL_VAULT_DISCOVER_PROXY_PASS};
+            ${MODEL_VAULT_PROXY_SSL}
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+    }
+
+    server {
+        listen 443 ssl;
+        server_name ${STACK_FQDN};
+
+        # Unauthenticated liveness endpoint (used by container healthchecks)
+        location = /healthz {
+            add_header Content-Type text/plain;
+            return 200 "ok\n";
+        }
+
+        # Keycloak IdP (must not be behind AUTH_GATE)
+        location /keycloak/ {
+            proxy_pass http://keycloak_backend;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        # Landing page
+        location = / {
+            ${AUTH_GATE}
+            root /usr/share/nginx/html;
+            index index.html;
+        }
+
+        ${SSO_LOCATIONS}
+
+        # Ollama API proxy
+        location /ollama/ {
+            proxy_pass http://ollama_backend/;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            ${AUTH_GATE}
+        }
+
+        # ComfyUI UI proxy with websocket support
+        location /comfyui/ {
+            proxy_pass http://comfyui_backend/;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_read_timeout 86400;
+            ${AUTH_GATE}
+        }
+
+        # LangChain API proxy
+        location /langchain/ {
+            proxy_pass http://langchain_backend/;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_connect_timeout 90s;
+            proxy_send_timeout 300s;
+            proxy_read_timeout 300s;
+            ${AUTH_GATE}
+        }
+
+        # LangFlow UI proxy
+        location /langflow/ {
+            proxy_pass http://langflow_backend/;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_read_timeout 86400;
+            ${AUTH_GATE}
+        }
+
+        # Code Executor API proxy
+        location /code-executor/ {
+            proxy_pass http://code_executor_backend/;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_connect_timeout 30s;
+            proxy_send_timeout 60s;
+            proxy_read_timeout 60s;
+            ${AUTH_GATE}
+        }
+
+        # Model Vault API (protected)
+        location /model-vault/ {
+            proxy_pass ${MODEL_VAULT_API_PROXY_PASS};
+            ${MODEL_VAULT_PROXY_SSL}
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            ${AUTH_GATE}
+        }
+
+        # Registry APIs (require mTLS if enabled)
+        location /register {
+            ${REGISTRY_MTLS_ENFORCE}
+            if ($http_x_registry_secret != "${REGISTRY_SECRET}") { return 403; }
+            proxy_pass ${MODEL_VAULT_REGISTER_PROXY_PASS};
+            ${MODEL_VAULT_PROXY_SSL}
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        location /discover {
+            ${REGISTRY_MTLS_ENFORCE}
+            if ($http_x_registry_secret != "${REGISTRY_SECRET}") { return 403; }
+            proxy_pass ${MODEL_VAULT_DISCOVER_PROXY_PASS};
+            ${MODEL_VAULT_PROXY_SSL}
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+    }
+}

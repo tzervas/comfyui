@@ -108,7 +108,7 @@ impl Database {
         Ok(())
     }
 
-    pub async fn discover_nodes(&self, service: Option<&str>, preferred_capabilities: Option<serde_json::Value>) -> Result<Vec<crate::models::Node>, sqlx::Error> {
+    pub async fn discover_nodes(&self, service: Option<&str>, _preferred_capabilities: Option<serde_json::Value>) -> Result<Vec<crate::models::Node>, sqlx::Error> {
         let mut query = "SELECT id, name, url, capabilities, last_heartbeat, status FROM nodes WHERE status = 'active'".to_string();
         if let Some(svc) = service {
             query.push_str(&format!(" AND name LIKE '%{}%'", svc));

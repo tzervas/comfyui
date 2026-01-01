@@ -1,0 +1,10 @@
+# Minimal GPU worker bundle (synced by tools/deploy-gpu-worker-remote.sh)
+
+.env.desktop
+docker-compose.desktop.yml
+Dockerfile.ollama
+healthcheck-ollama.sh
+healthcheck-comfyui.sh
+
+tools/legacy/ollama-init.sh
+tools/legacy/comfyui-init.sh

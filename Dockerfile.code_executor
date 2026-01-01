@@ -4,3 +4,18 @@ FROM python:3.12-slim
 RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
+
+# Minimal runtime deps for the executor API
+RUN pip install --no-cache-dir \
+    fastapi \
+    uvicorn
+
+WORKDIR /app
+
+COPY code_executor/ /app/code_executor/
+
+# Run as non-root for defense-in-depth
+RUN useradd -m -u 10001 appuser
+USER appuser
+
+EXPOSE 5000

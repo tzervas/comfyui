@@ -18,21 +18,27 @@ services:
       - ./tools/legacy/ollama-init.sh:/app/ollama-init.sh:ro
       - ./healthcheck-ollama.sh:/app/healthcheck-ollama.sh:ro
       - tmp_trackers:/tmp/comfyui-ollama
+      - ./ssl:/etc/ssl/registry:ro
     ports:
       - "${OLLAMA_PORT:-11434}:11434"
     network_mode: bridge
     environment:
       - OLLAMA_HOST=0.0.0.0:${OLLAMA_PORT:-11434}
-      - OLLAMA_ORIGINS=${OLLAMA_ORIGINS:-http://192.168.1.170}
+      - OLLAMA_ORIGINS=${OLLAMA_ORIGINS:-https://homelab.lan}
       - HTTPS_PROXY=${HTTPS_PROXY:-}
       - OLLAMA_DEBUG=${OLLAMA_DEBUG:-false}
       - OLLAMA_MODELS=${OLLAMA_MODELS:-gemma3:1b,deepseek-r1:1.5b,smollm2:1.7b,dolphin-llama3:8b,wizard-vicuna-uncensored:7b,llama2-uncensored:7b,llava:7b,moondream:1.8b,llama3.1:8b,mistral:7b,gemma:7b}
       - TMPDIR=/tmp/comfyui-ollama
       - MODEL_VAULT_TOKEN=${MODEL_VAULT_TOKEN}
-      - MODEL_VAULT_URL=http://192.168.1.170:8080  # Point to homelab
+      - MODEL_VAULT_URL=${MODEL_VAULT_URL:-}
       - HF_TOKEN=${HF_TOKEN}
-      - REGISTRY_URL=http://192.168.1.170:8080  # For registration
+      - REGISTRY_URL=${REGISTRY_URL}
       - REGISTRY_SECRET=${REGISTRY_SECRET}
+      - REGISTRY_MTLS_CA=${REGISTRY_MTLS_CA:-}
+      - REGISTRY_MTLS_CERT=${REGISTRY_MTLS_CERT:-}
+      - REGISTRY_MTLS_KEY=${REGISTRY_MTLS_KEY:-}
+      - ADVERTISE_HOST=${ADVERTISE_HOST:-192.168.1.99}
+      - ADVERTISE_SCHEME=${ADVERTISE_SCHEME:-http}
       # GPU resource management
       - OLLAMA_NUM_PARALLEL=${OLLAMA_NUM_PARALLEL:-2}  # Limit concurrent requests
       - OLLAMA_MAX_LOADED_MODELS=${OLLAMA_MAX_LOADED_MODELS:-2}  # Reduce VRAM usage
@@ -69,6 +75,7 @@ services:
       - ./tools/legacy/comfyui-init.sh:/app/comfyui-init.sh:ro
       - ./healthcheck-comfyui.sh:/app/healthcheck-comfyui.sh:ro
       - tmp_trackers:/tmp/comfyui-ollama
+      - ./ssl:/etc/ssl/registry:ro
     ports:
       - "${COMFYUI_PORT:-8188}:18188"
     environment:
@@ -77,8 +84,13 @@ services:
       - HF_TOKEN=${HF_TOKEN:-}
       - COMFYUI_PATH=${COMFYUI_PATH:-/opt/ComfyUI}
       - TMPDIR=/tmp/comfyui-ollama
-      - REGISTRY_URL=http://192.168.1.170:8080
+      - REGISTRY_URL=${REGISTRY_URL}
       - REGISTRY_SECRET=${REGISTRY_SECRET}
+      - REGISTRY_MTLS_CA=${REGISTRY_MTLS_CA:-}
+      - REGISTRY_MTLS_CERT=${REGISTRY_MTLS_CERT:-}
+      - REGISTRY_MTLS_KEY=${REGISTRY_MTLS_KEY:-}
+      - ADVERTISE_HOST=${ADVERTISE_HOST:-192.168.1.99}
+      - ADVERTISE_SCHEME=${ADVERTISE_SCHEME:-http}
     deploy:
       resources:
         limits:

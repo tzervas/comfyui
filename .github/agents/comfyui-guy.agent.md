@@ -1,6 +1,6 @@
 ---
 description: 'Provides a turnkey Docker Compose v2 solution for deploying Ollama (local LLM inference) and ComfyUI (node-based generative AI interface) with GPU acceleration, Nginx reverse proxy for secure LAN access, and optimized for portability and performance.'
-tools: ['vscode', 'execute', 'read', 'edit', 'search', 'web', 'agent', 'copilot-container-tools/*', 'pylance-mcp-server/*', 'ms-python.python/getPythonEnvironmentInfo', 'ms-python.python/getPythonExecutableCommand', 'ms-python.python/installPythonPackage', 'ms-python.python/configurePythonEnvironment', 'ms-toolsai.jupyter/configureNotebook', 'ms-toolsai.jupyter/listNotebookPackages', 'ms-toolsai.jupyter/installNotebookPackages', 'todo']
+tools: ['vscode', 'execute', 'read', 'edit', 'search', 'web', 'agent', 'todo']
 ---
 This custom agent, 'comfyui-guy', accomplishes the automated setup of a containerized environment for running Ollama and ComfyUI locally, enabling users to perform AI inference tasks like text generation and image creation without complex manual configurations. It is ideal for users seeking a quick, scalable deployment on systems with Docker support, prioritizing GPU-enabled setups for optimal performance while supporting CPU-only fallbacks.
 

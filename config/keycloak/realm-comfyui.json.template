@@ -1,0 +1,93 @@
+{
+  "realm": "comfyui",
+  "enabled": true,
+  "displayName": "ComfyUI",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "rememberMe": true,
+
+  "roles": {
+    "realm": [
+      { "name": "comfyui_admin", "description": "Full access" },
+      { "name": "comfyui_user", "description": "Standard access" }
+    ]
+  },
+
+  "groups": [
+    {
+      "name": "comfyui-admins",
+      "realmRoles": ["comfyui_admin"]
+    },
+    {
+      "name": "comfyui-users",
+      "realmRoles": ["comfyui_user"]
+    }
+  ],
+
+  "clients": [
+    {
+      "clientId": "comfyui-ingress",
+      "name": "ComfyUI Ingress (oauth2-proxy)",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "__OAUTH2_PROXY_CLIENT_SECRET__",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "redirectUris": [
+        "https://__STACK_FQDN__:__NGINX_SSL_PORT__/oauth2/callback"
+      ],
+      "webOrigins": [
+        "https://__STACK_FQDN__:__NGINX_SSL_PORT__"
+      ],
+      "attributes": {
+        "post.logout.redirect.uris": "https://__STACK_FQDN__:__NGINX_SSL_PORT__/*"
+      }
+    }
+  ],
+
+  "users": [
+    {
+      "username": "admin",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Stack",
+      "lastName": "Admin",
+      "email": "admin@__SSO_EMAIL_DOMAIN__",
+      "groups": ["/comfyui-admins"],
+      "requiredActions": ["UPDATE_PASSWORD", "CONFIGURE_TOTP"],
+      "credentials": [
+        { "type": "password", "value": "__SSO_ADMIN_PASS__", "temporary": true }
+      ]
+    },
+    {
+      "username": "user1",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "User",
+      "lastName": "One",
+      "email": "user1@__SSO_EMAIL_DOMAIN__",
+      "groups": ["/comfyui-users"],
+      "requiredActions": ["UPDATE_PASSWORD"],
+      "credentials": [
+        { "type": "password", "value": "__SSO_USER1_PASS__", "temporary": true }
+      ]
+    },
+    {
+      "username": "user2",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "User",
+      "lastName": "Two",
+      "email": "user2@__SSO_EMAIL_DOMAIN__",
+      "groups": ["/comfyui-users"],
+      "requiredActions": ["UPDATE_PASSWORD"],
+      "credentials": [
+        { "type": "password", "value": "__SSO_USER2_PASS__", "temporary": true }
+      ]
+    }
+  ]
+}

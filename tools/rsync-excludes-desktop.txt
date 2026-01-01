@@ -1,0 +1,12 @@
+.git/
+.gitignore
+target/
+**/__pycache__/
+.mypy_cache/
+test-logs/
+backups/
+*.log
+
+# Do NOT ship CA private key to worker
+ssl/ca-key.pem
+ssl/*.srl

@@ -36,10 +36,15 @@ echo "Setting up default ComfyUI workflows..."
 # Create workflows directory
 mkdir -p /opt/ComfyUI/user/default/workflows
 
-# Copy default workflow if not exists
+# Install workflow templates (mounted from repo)
+if [ -d "/app/assets/workflows" ]; then
+  echo "Copying workflow templates from /app/assets/workflows ..."
+  cp -n /app/assets/workflows/*.json /opt/ComfyUI/user/default/workflows/ 2>/dev/null || true
+fi
+
+# Ensure a default workflow exists
 if [ ! -f "/opt/ComfyUI/user/default/workflows/default_workflow.json" ]; then
-  echo "Installing default workflow..."
-  # Placeholder: Add a basic workflow JSON here
+  echo "No default workflow template found; creating a minimal placeholder."
   cat > /opt/ComfyUI/user/default/workflows/default_workflow.json << 'EOF'
 {
   "workflow": {
@@ -51,7 +56,7 @@ if [ ! -f "/opt/ComfyUI/user/default/workflows/default_workflow.json" ]; then
     "version": 0.4
   },
   "name": "Default Workflow",
-  "description": "Basic ComfyUI workflow template"
+  "description": "Starter template. Add nodes in the UI and save a new workflow."
 }
 EOF
 fi
@@ -85,8 +90,21 @@ echo "ComfyUI custom nodes and workflows ready."
 # Register with registry
 if [ -n "$REGISTRY_URL" ] && [ -n "$REGISTRY_SECRET" ]; then
   echo "Registering ComfyUI service with registry..."
-  curl -X POST "$REGISTRY_URL/register" \
+  CURL_MTLS_ARGS=()
+  if [ -n "${REGISTRY_CA:-}" ]; then
+    CURL_MTLS_ARGS+=(--cacert "$REGISTRY_CA")
+  elif [ -n "${REGISTRY_MTLS_CA:-}" ]; then
+    CURL_MTLS_ARGS+=(--cacert "$REGISTRY_MTLS_CA")
+  fi
+  if [ -n "$REGISTRY_MTLS_CERT" ] && [ -n "$REGISTRY_MTLS_KEY" ]; then
+    CURL_MTLS_ARGS+=(--cert "$REGISTRY_MTLS_CERT" --key "$REGISTRY_MTLS_KEY")
+  fi
+
+  ADVERTISE_HOST=${ADVERTISE_HOST:-192.168.1.99}
+  ADVERTISE_SCHEME=${ADVERTISE_SCHEME:-http}
+
+  curl "${CURL_MTLS_ARGS[@]}" -X POST "$REGISTRY_URL/register" \
     -H "Content-Type: application/json" \
     -H "X-Registry-Secret: $REGISTRY_SECRET" \
-    -d "{\"service\": \"comfyui\", \"endpoint\": \"http://192.168.1.99:${COMFYUI_PORT:-8188}\", \"capabilities\": {\"gpu\": true, \"vram_gb\": 24}}" || echo "Registration failed"
+    -d "{\"service\": \"comfyui\", \"endpoint\": \"${ADVERTISE_SCHEME}://${ADVERTISE_HOST}:${COMFYUI_PORT:-8188}\", \"capabilities\": {\"gpu\": true, \"vram_gb\": 24}}" || echo "Registration failed"
 fi
