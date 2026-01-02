@@ -100,14 +100,15 @@ services:
       - ./config/oauth2-proxy/allowed_emails.txt:/etc/oauth2-proxy/allowed_emails.txt:ro
     environment:
       - OAUTH2_PROXY_PROVIDER=oidc
-      - OAUTH2_PROXY_OIDC_ISSUER_URL=https://${STACK_FQDN}:8444/keycloak/realms/comfyui
+      - OAUTH2_PROXY_OIDC_ISSUER_URL=http://keycloak:8080/keycloak/realms/comfyui
       - OAUTH2_PROXY_CLIENT_ID=${OAUTH2_PROXY_CLIENT_ID:-}
       - OAUTH2_PROXY_CLIENT_SECRET=${OAUTH2_PROXY_CLIENT_SECRET:-}
       - OAUTH2_PROXY_COOKIE_SECRET=${OAUTH2_PROXY_COOKIE_SECRET:-}
       - OAUTH2_PROXY_REDIRECT_URL=${OAUTH2_PROXY_REDIRECT_URL:-}
       - OAUTH2_PROXY_HTTP_ADDRESS=0.0.0.0:4180
       - OAUTH2_PROXY_INSECURE_OIDC_ALLOW_UNVERIFIED_EMAIL=true
-      - OAUTH2_PROXY_INSECURE_OIDC_SKIP_VERIFY=true
+      - OAUTH2_PROXY_INSECURE_OIDC_SKIP_ISSUER_VERIFICATION=true
+      - OAUTH2_PROXY_OIDC_EXTRA_AUDIENCES=https://${STACK_FQDN}:8444/keycloak/realms/comfyui
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:4180/oauth2/ping"]
       interval: 30s
