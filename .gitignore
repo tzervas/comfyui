@@ -4,6 +4,7 @@
 
 # Secrets / auth
 .htpasswd
+.credentials/
 
 # TLS / mTLS material (generated locally)
 ssl/
