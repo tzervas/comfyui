@@ -5,7 +5,7 @@ use rcgen::{
     KeyUsagePurpose, SanType,
 };
 use std::fs::{self, OpenOptions};
-use std::os::unix::fs::PermissionsExt;
+use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use time::{Duration, OffsetDateTime};
 use tracing::{info, warn};

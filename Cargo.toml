@@ -27,3 +27,4 @@ tower-http = { version = "0.5", features = ["auth", "cors", "fs", "trace"] }
 rcgen = "0.12"
 pem = "3.0"
 time = "0.3"
+anyhow = "1.0"
