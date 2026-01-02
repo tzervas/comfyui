@@ -59,12 +59,12 @@ http {
         keepalive 16;
     }
 
-    # Keycloak upstream commented out until SSO is enabled
-    # upstream keycloak_backend {
-    #     zone keycloak_backend 64k;
-    #     server keycloak:8080;
-    #     keepalive 16;
-    # }
+    # Keycloak upstream for SSO
+    upstream keycloak_backend {
+        zone keycloak_backend 64k;
+        server keycloak:8080;
+        keepalive 16;
+    }
 
     # Gzip compression
     gzip on;
