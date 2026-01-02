@@ -82,17 +82,19 @@ REMOTE_DOCKER_PREFIX=$(detect_remote_docker_prefix)
 echo "[deploy] Remote docker prefix: $REMOTE_DOCKER_PREFIX"
 
 # Ensure remote directory exists (on /data). If /data is root-owned, use sudo -n.
-ssh $SSH_OPTS "$REMOTE_SSH" "bash -lc '
-  set -euo pipefail
-  if mkdir -p "'$REMOTE_PROJECT_DIR'" 2>/dev/null; then
+ssh $SSH_OPTS "$REMOTE_SSH" "bash -c '
+  set -eo pipefail
+  REMOTE_PROJECT_DIR=\"'$REMOTE_PROJECT_DIR'\"
+  REMOTE_USER=\"'$REMOTE_USER'\"
+  if mkdir -p \"\$REMOTE_PROJECT_DIR\" 2>/dev/null; then
     exit 0
   fi
   if command -v sudo >/dev/null 2>&1; then
-    sudo -n mkdir -p "'$REMOTE_PROJECT_DIR'"
-    sudo -n chown -R "'$REMOTE_USER':'$REMOTE_USER'" "'$REMOTE_PROJECT_DIR'" || true
+    sudo -n mkdir -p \"\$REMOTE_PROJECT_DIR\"
+    sudo -n chown -R \"\$REMOTE_USER:\$REMOTE_USER\" \"\$REMOTE_PROJECT_DIR\" || true
     exit 0
   fi
-  echo "[deploy] Failed to create remote dir and sudo not available" >&2
+  echo \"[deploy] Failed to create remote dir and sudo not available\" >&2
   exit 1
 '"
 
