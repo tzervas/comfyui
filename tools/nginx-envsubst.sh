@@ -53,29 +53,29 @@ auth_request /oauth2/auth;
 error_page 401 = @sso_signin;
 EOF
 )
-  SSO_LOCATIONS=$(cat <<'EOF'
+  SSO_LOCATIONS=$(cat <<EOF
 location = /oauth2/auth {
     internal;
-    set $oauth2_upstream ${OAUTH2_PROXY_UPSTREAM};
-    proxy_pass http://$oauth2_upstream/oauth2/auth;
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-Proto $scheme;
-    proxy_set_header X-Forwarded-Uri $request_uri;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    set \$oauth2_upstream ${OAUTH2_PROXY_UPSTREAM};
+    proxy_pass http://\$oauth2_upstream/oauth2/auth;
+    proxy_set_header Host \$host;
+    proxy_set_header X-Real-IP \$remote_addr;
+    proxy_set_header X-Forwarded-Proto \$scheme;
+    proxy_set_header X-Forwarded-Uri \$request_uri;
+    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
 }
 
 location /oauth2/ {
-    set $oauth2_upstream ${OAUTH2_PROXY_UPSTREAM};
-    proxy_pass http://$oauth2_upstream;
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-Proto $scheme;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    set \$oauth2_upstream ${OAUTH2_PROXY_UPSTREAM};
+    proxy_pass http://\$oauth2_upstream;
+    proxy_set_header Host \$host;
+    proxy_set_header X-Real-IP \$remote_addr;
+    proxy_set_header X-Forwarded-Proto \$scheme;
+    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
 }
 
 location @sso_signin {
-    return 302 /oauth2/start?rd=$scheme://$host$request_uri;
+    return 302 /oauth2/start?rd=\$scheme://\$host\$request_uri;
 }
 EOF
 )
