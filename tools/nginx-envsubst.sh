@@ -58,9 +58,10 @@ location = /oauth2/auth {
     internal;
     set \$oauth2_upstream ${OAUTH2_PROXY_UPSTREAM};
     proxy_pass http://\$oauth2_upstream/oauth2/auth;
-    proxy_set_header Host \$host;
+    proxy_set_header Host \$http_host;
     proxy_set_header X-Real-IP \$remote_addr;
     proxy_set_header X-Forwarded-Proto \$scheme;
+    proxy_set_header X-Forwarded-Host \$http_host;
     proxy_set_header X-Forwarded-Uri \$request_uri;
     proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
 }
@@ -68,14 +69,15 @@ location = /oauth2/auth {
 location /oauth2/ {
     set \$oauth2_upstream ${OAUTH2_PROXY_UPSTREAM};
     proxy_pass http://\$oauth2_upstream;
-    proxy_set_header Host \$host;
+    proxy_set_header Host \$http_host;
     proxy_set_header X-Real-IP \$remote_addr;
     proxy_set_header X-Forwarded-Proto \$scheme;
+    proxy_set_header X-Forwarded-Host \$http_host;
     proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
 }
 
 location @sso_signin {
-    return 302 /oauth2/start?rd=\$scheme://\$host\$request_uri;
+    return 302 /oauth2/start?rd=\$scheme://\$http_host\$request_uri;
 }
 EOF
 )
