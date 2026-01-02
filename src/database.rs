@@ -1,4 +1,6 @@
-use sqlx::{SqlitePool, Row};
+use sqlx::{Row, SqlitePool};
+use sqlx::sqlite::SqliteConnectOptions;
+use std::str::FromStr;
 use crate::models::Model;
 
 pub struct Database {
@@ -7,7 +9,10 @@ pub struct Database {
 
 impl Database {
     pub async fn new(config: &crate::config::DatabaseConfig) -> Result<Self, sqlx::Error> {
-        let pool = SqlitePool::connect(&config.url).await?;
+        // SQLx SQLite defaults can fail to create the DB file in some environments.
+        // Explicitly allow creation for first-run bootstraps.
+        let options = SqliteConnectOptions::from_str(&config.url)?.create_if_missing(true);
+        let pool = SqlitePool::connect_with(options).await?;
         
         // Create tables
         sqlx::query(

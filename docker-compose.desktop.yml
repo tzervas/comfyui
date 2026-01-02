@@ -65,7 +65,7 @@ services:
     restart: unless-stopped
 
   comfyui:
-    image: ${COMFYUI_IMAGE:-ghcr.io/ai-dock/comfyui:latest}
+    image: ${COMFYUI_IMAGE:-ghcr.io/ai-dock/comfyui:0.3.0}
     container_name: comfyui
     network_mode: bridge
     volumes:
@@ -84,6 +84,10 @@ services:
       - HF_TOKEN=${HF_TOKEN:-}
       - COMFYUI_PATH=${COMFYUI_PATH:-/opt/ComfyUI}
       - TMPDIR=/tmp/comfyui-ollama
+      # ai-dock Caddy/Service Portal gate:
+      # - true (default): unauthenticated requests redirect to /login
+      # - false: allow direct access to ComfyUI endpoints like /view and /prompt
+      - WEB_ENABLE_AUTH=${WEB_ENABLE_AUTH:-true}
       - REGISTRY_URL=${REGISTRY_URL}
       - REGISTRY_SECRET=${REGISTRY_SECRET}
       - REGISTRY_MTLS_CA=${REGISTRY_MTLS_CA:-}

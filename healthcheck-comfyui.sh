@@ -1,7 +1,11 @@
 #!/bin/bash
 
 # Check if ComfyUI web interface is responding and contains expected content
-URL="http://localhost:18188/"
+# Default port is image-dependent:
+# - ai-dock ComfyUI: bind ComfyUI itself on 8188 (service portal may use 18188)
+# - older stacks: may run ComfyUI directly on 18188
+PORT="${COMFYUI_PORT:-18188}"
+URL="http://127.0.0.1:${PORT}/"
 
 if command -v curl >/dev/null 2>&1; then
   if curl -fsS --max-time 10 "$URL" | grep -q "ComfyUI"; then

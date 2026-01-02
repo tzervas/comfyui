@@ -6,3 +6,10 @@ target/
 test-logs/
 backups/
 *.log
+
+# Pipelines runtime artifacts (created by the pipelines container; can be root-owned)
+pipelines/**/valves.json
+pipelines/failed/
+pipelines/failed/**
+pipelines/**/.data/
+pipelines/**/.data/**

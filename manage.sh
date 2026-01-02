@@ -9,6 +9,16 @@ COMPOSE_FILE="docker-compose.yml"
 PROJECT_NAME="comfyui-ollama"
 
 case "$1" in
+  openwebui-up)
+    echo "Starting homelab stack + OpenWebUI overlay..."
+    docker compose -f docker-compose.homelab.yml -f docker-compose.openwebui.yml --env-file .env.homelab up -d
+    echo "Started. Access via nginx (see NGINX_PORT/NGINX_SSL_PORT)."
+    ;;
+  openwebui-down)
+    echo "Stopping homelab stack + OpenWebUI overlay..."
+    docker compose -f docker-compose.homelab.yml -f docker-compose.openwebui.yml --env-file .env.homelab down
+    echo "Stopped."
+    ;;
   start)
     echo "Starting services..."
     docker compose -f $COMPOSE_FILE -p $PROJECT_NAME up -d
@@ -156,7 +166,7 @@ case "$1" in
     done
     ;;
   *)
-    echo "Usage: $0 {start|stop|restart|build|watch|logs [service]|status|test|backup|restore [backup_dir]|monitor}"
+    echo "Usage: $0 {start|stop|restart|build|watch|logs [service]|status|test|backup|restore [backup_dir]|monitor|openwebui-up|openwebui-down}"
     exit 1
     ;;
 esac

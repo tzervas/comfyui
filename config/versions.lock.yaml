@@ -1,0 +1,49 @@
+# Pin semver tags here; switch to digests later if needed.
+docker_images:
+  openwebui:
+    image: ghcr.io/open-webui/open-webui
+    tag: "<set-semver-tag>"  # e.g., 0.3.x
+  pipelines:
+    image: ghcr.io/open-webui/pipelines
+    tag: "<set-semver-tag>"  # e.g., 0.3.x
+  comfyui:
+    image: ghcr.io/ai-dock/comfyui
+    tag: "<set-semver-tag>"  # e.g., 0.3.x
+  ollama:
+    image: ollama/ollama
+    tag: "<set-semver-tag>"  # e.g., 0.5.x
+
+git_repos:
+  comfyui_manager:
+    repo: https://github.com/ltdrdata/ComfyUI-Manager.git
+    commit: "<set-commit-sha>"
+  comfyui_llm_party:
+    repo: https://github.com/city96/ComfyUI-LLM-Party.git
+    commit: "<set-commit-sha>"
+  comfyui_copilot:
+    repo: https://github.com/pashpashpash/vault-copilot.git
+    commit: "<set-commit-sha>"
+  openwebui_tools:
+    repo: https://github.com/open-webui/open-webui.git
+    path: tools
+    commit: "<set-commit-sha>"
+
+python:
+  # For custom-built images (langchain, code_executor, etc.) pin every dep here
+  constraints: "<set-constraints-file-or-list>"
+
+models:
+  ollama:
+    - name: gemma3
+      tag: 1b
+    - name: deepseek-r1
+      tag: 1.5b
+    - name: tinyllama
+      tag: latest  # replace with explicit tag when selected
+  comfyui:
+    # Add video/audio model assets and their source/version here (vae, checkpoints, motion models)
+    - name: "<model-name>"
+      version: "<version-or-date>"
+      source: "<url or registry>"
+
+validated_on: "<set-date>"

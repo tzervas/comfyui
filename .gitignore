@@ -17,3 +17,6 @@ target/
 test-logs/
 backups/
 .sso-credentials-*.txt
+
+# Chat/context handoff snapshots (local-only)
+.context-snapshots/

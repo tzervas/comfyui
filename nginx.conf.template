@@ -25,44 +25,56 @@ http {
     # All services use internal container names; Docker/K8s DNS resolves these
     upstream ollama_backend {
         zone ollama_backend 64k;
-        server ${OLLAMA_UPSTREAM};
+        server ${OLLAMA_UPSTREAM} resolve;
         keepalive 32;
     }
 
     upstream comfyui_backend {
         zone comfyui_backend 64k;
-        server ${COMFYUI_UPSTREAM};
+        server ${COMFYUI_UPSTREAM} resolve;
         keepalive 32;
     }
 
     upstream code_executor_backend {
         zone code_executor_backend 64k;
-        server code_executor:5000;
+        server code_executor:5000 resolve;
         keepalive 16;
     }
 
     upstream langchain_backend {
         zone langchain_backend 64k;
-        server langchain:8000;
+        server langchain:8000 resolve;
         keepalive 32;
     }
 
     upstream langflow_backend {
         zone langflow_backend 64k;
-        server langflow:7860;
+        server langflow:7860 resolve;
         keepalive 32;
     }
 
     upstream model_vault_backend {
         zone model_vault_backend 64k;
-        server model-vault:8080;
+        server model-vault:8080 resolve;
+        keepalive 16;
+    }
+
+    upstream openwebui_backend {
+        zone openwebui_backend 64k;
+        server ${OPENWEBUI_UPSTREAM} resolve;
+        keepalive 32;
+    }
+
+    upstream pipelines_backend {
+        zone pipelines_backend 64k;
+        server ${PIPELINES_UPSTREAM} resolve;
         keepalive 16;
     }
 
     # Keycloak upstream for SSO
     upstream keycloak_backend {
         zone keycloak_backend 64k;
-        server keycloak:8080;
+        server keycloak:8080 resolve;
         keepalive 16;
     }
 
@@ -89,11 +101,23 @@ http {
         #     proxy_set_header X-Forwarded-Proto $scheme;
         # }
 
-        # Landing page
-        location = / {
+        # OpenWebUI is the primary multimodal chat UI
+        location / {
+            proxy_pass http://openwebui_backend/;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+            proxy_read_timeout 86400;
             ${AUTH_GATE}
-            root /usr/share/nginx/html;
-            index index.html;
+        }
+
+        # Explicit compatibility alias
+        location /openwebui/ {
+            return 302 /;
         }
 
         ${SSO_LOCATIONS}
@@ -118,6 +142,10 @@ http {
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
             proxy_set_header X-Forwarded-Proto $scheme;
+            # ai-dock service portal may emit absolute redirects to localhost:1111.
+            # Rewrite them so clients stay on the nginx /comfyui/ path.
+            proxy_redirect http://localhost:1111/ /comfyui/;
+            proxy_redirect https://localhost:1111/ /comfyui/;
             proxy_read_timeout 86400;
             ${AUTH_GATE}
         }
@@ -206,6 +234,23 @@ http {
             proxy_connect_timeout 30s;
             proxy_send_timeout 60s;
             proxy_read_timeout 60s;
+            ${AUTH_GATE}
+        }
+
+        # Pipelines API (optional; primarily used for debugging/admin connectivity)
+        location /pipelines/ {
+            proxy_pass http://pipelines_backend/;
+            # Pipelines uses Authorization: Bearer <token>. Since nginx Basic Auth also
+            # uses the Authorization header, allow callers to provide the upstream
+            # token via X-Pipelines-Authorization.
+            proxy_set_header Authorization $http_x_pipelines_authorization;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_connect_timeout 30s;
+            proxy_send_timeout 300s;
+            proxy_read_timeout 300s;
             ${AUTH_GATE}
         }
 
@@ -269,11 +314,23 @@ http {
             proxy_busy_buffers_size 256k;
         }
 
-        # Landing page
-        location = / {
+        # OpenWebUI is the primary multimodal chat UI
+        location / {
+            proxy_pass http://openwebui_backend/;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+            proxy_read_timeout 86400;
             ${AUTH_GATE}
-            root /usr/share/nginx/html;
-            index index.html;
+        }
+
+        # Explicit compatibility alias
+        location /openwebui/ {
+            return 302 /;
         }
 
         ${SSO_LOCATIONS}
@@ -298,6 +355,8 @@ http {
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
             proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_redirect http://localhost:1111/ /comfyui/;
+            proxy_redirect https://localhost:1111/ /comfyui/;
             proxy_read_timeout 86400;
             ${AUTH_GATE}
         }
@@ -386,6 +445,21 @@ http {
             proxy_connect_timeout 30s;
             proxy_send_timeout 60s;
             proxy_read_timeout 60s;
+            ${AUTH_GATE}
+        }
+
+        # Pipelines API (optional; primarily used for debugging/admin connectivity)
+        location /pipelines/ {
+            proxy_pass http://pipelines_backend/;
+            # See HTTP server block for header collision rationale.
+            proxy_set_header Authorization $http_x_pipelines_authorization;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_connect_timeout 30s;
+            proxy_send_timeout 300s;
+            proxy_read_timeout 300s;
             ${AUTH_GATE}
         }
 

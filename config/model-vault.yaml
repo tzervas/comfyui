@@ -28,4 +28,4 @@ security:
     verify_signatures: true
 
 database:
-  url: "sqlite:/var/lib/model-vault/model-vault.db"
+  url: "sqlite:///var/lib/model-vault/model-vault.db"

@@ -51,7 +51,7 @@ services:
     restart: unless-stopped
 
   comfyui:
-    image: ${COMFYUI_IMAGE:-ghcr.io/ai-dock/comfyui:latest}  # GPU-enabled image
+    image: ${COMFYUI_IMAGE:-ghcr.io/ai-dock/comfyui:0.3.0}  # GPU-enabled image
     container_name: comfyui
     volumes:
       - comfyui_models:/opt/storage
@@ -98,14 +98,16 @@ services:
       - "${NGINX_SSL_PORT:-443}:443"  # HTTPS
     volumes:
       - ./nginx.conf.template:/etc/nginx/nginx.conf.template:ro
+      - ./tools/nginx-generate-htpasswd.sh:/docker-entrypoint.d/10-nginx-generate-htpasswd.sh:ro
       - ./tools/nginx-envsubst.sh:/docker-entrypoint.d/99-nginx-envsubst.sh:ro
       - ./tools/healthcheck-ingress.sh:/app/healthcheck-ingress.sh:ro
-      - ${HTPASSWD_FILE:-./.htpasswd}:/etc/nginx/.htpasswd:ro  # Optional auth file
       - ./ssl:/etc/ssl/certs/localhost:ro  # SSL certificates
     environment:
       - STACK_FQDN=${STACK_FQDN:-_}
+      - NGINX_BASIC_AUTH_USER=${NGINX_BASIC_AUTH_USER:-admin}
+      - NGINX_BASIC_AUTH_PASSWORD=${NGINX_BASIC_AUTH_PASSWORD:-}
       - OLLAMA_UPSTREAM=${OLLAMA_UPSTREAM:-ollama:11434}
-      - COMFYUI_UPSTREAM=${COMFYUI_UPSTREAM:-comfyui:18188}
+      - COMFYUI_UPSTREAM=${COMFYUI_UPSTREAM:-comfyui:8188}
       - PROBE_OLLAMA=${PROBE_OLLAMA:-1}
       - PROBE_COMFYUI=${PROBE_COMFYUI:-1}
       - MTLS_VERIFY=${MTLS_VERIFY:-off}
@@ -260,6 +262,10 @@ services:
   #   deploy:
   #     resources:
   #       limits:
+      # ai-dock Caddy/Service Portal gate:
+      # - true (default): unauthenticated requests redirect to ${SERVICEPORTAL_URL}/login
+      # - false: allow direct access to ComfyUI endpoints like /view and /prompt
+      - WEB_ENABLE_AUTH=${WEB_ENABLE_AUTH:-true}
   #         cpus: '1.0'
   #         memory: 1G
   #       reservations:

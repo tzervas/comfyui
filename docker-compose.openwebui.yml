@@ -1,0 +1,85 @@
+# OpenWebUI + Pipelines overlay for homelab
+# Usage:
+#   docker compose \
+#     -f docker-compose.homelab.yml \
+#     -f docker-compose.openwebui.yml \
+#     --env-file .env.homelab \
+#     up -d
+#
+# Notes:
+# - OpenWebUI is the primary multimodal UI (chat + images + voice UI).
+# - Pipelines is an OpenAI-API compatible plugin framework used for custom tools (video/audio/agents).
+
+services:
+  openwebui:
+    image: ${OPENWEBUI_IMAGE:-ghcr.io/open-webui/open-webui:0.3.4}
+    container_name: openwebui
+    networks:
+      - comfyui-net
+    env_file:
+      - ./config/openwebui.env
+    environment:
+      # Persist under a dedicated volume (keeps users/settings/uploads).
+      - DATA_DIR=/app/backend/data
+      # Overrideable endpoints (set in .env.homelab for dual-host)
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://ollama:11434}
+      - COMFYUI_BASE_URL=${COMFYUI_BASE_URL:-http://comfyui:18188}
+      - OPENWEBUI_PUBLIC_BASE_URL=${OPENWEBUI_PUBLIC_BASE_URL:-https://${STACK_FQDN}/}
+      - COMFYUI_PUBLIC_BASE_URL=${COMFYUI_PUBLIC_BASE_URL:-https://${STACK_FQDN}/comfyui/}
+    volumes:
+      - openwebui_data:/app/backend/data
+      - ./healthcheck-openwebui.sh:/app/healthcheck-openwebui.sh:ro
+    # Access via nginx (recommended). If you need a host port, add it explicitly.
+    depends_on:
+      - model-vault
+      - nginx
+    healthcheck:
+      test: ["CMD", "sh", "/app/healthcheck-openwebui.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    restart: unless-stopped
+
+  pipelines:
+    image: ${PIPELINES_IMAGE:-ghcr.io/open-webui/pipelines:0.3.4}
+    container_name: openwebui-pipelines
+    networks:
+      - comfyui-net
+    env_file:
+      - ./config/openwebui.env
+    environment:
+      # Default Pipelines API key in upstream docs. Override via env.
+      - API_KEY=${PIPELINES_API_KEY:-0p3n-w3bu!}
+      - PIPELINES_DIR=/app/pipelines
+      # Lets Pipelines reach services bound on the Docker host (handy for debugging).
+      - PIPELINES_ADD_HOST_GATEWAY=${PIPELINES_ADD_HOST_GATEWAY:-1}
+      # Ensure the tool pipeline has correct upstreams (override in .env.homelab for dual-host)
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://ollama:11434}
+      - COMFYUI_BASE_URL=${COMFYUI_BASE_URL:-http://comfyui:18188}
+      - COMFYUI_PUBLIC_BASE_URL=${COMFYUI_PUBLIC_BASE_URL:-https://${STACK_FQDN}/comfyui/}
+    volumes:
+      - ./pipelines:/app/pipelines
+      - ./assets:/app/assets:ro
+      - pipelines_data:/app/pipelines/.data
+      - ./healthcheck-pipelines.sh:/app/healthcheck-pipelines.sh:ro
+    ports:
+      - "${PIPELINES_HOST_PORT:-9099}:9099"
+    depends_on:
+      - model-vault
+    healthcheck:
+      test: ["CMD", "sh", "/app/healthcheck-pipelines.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+networks:
+  comfyui-net:
+    external: true
+    name: comfyui-homelab-net
+
+volumes:
+  openwebui_data:
+  pipelines_data:

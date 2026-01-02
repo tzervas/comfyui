@@ -14,7 +14,7 @@ services:
       - MODEL_VAULT_TOKEN=${MODEL_VAULT_TOKEN}  # TODO: migrate to Docker secret for K8s
       - REGISTRY_SECRET=${REGISTRY_SECRET}      # TODO: migrate to Docker secret for K8s
       - MODEL_VAULT_STORAGE__PATH=/var/lib/model-vault
-      - MODEL_VAULT_DATABASE__URL=sqlite:/var/lib/model-vault/model-vault.db
+      - MODEL_VAULT_DATABASE__URL=sqlite:///var/lib/model-vault/model-vault.db
     networks:
       - comfyui-net
     healthcheck:
@@ -79,7 +79,7 @@ services:
       - KEYCLOAK_ADMIN=${KEYCLOAK_BOOTSTRAP_ADMIN_USERNAME:-kcadmin}
       - KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD:-}
     healthcheck:
-      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/9000 && echo -e 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\n\\r\\n' >&3 && cat <&3 | grep -q '200 OK'"]
+      test: ["CMD", "bash", "-lc", "exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /keycloak/realms/comfyui HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && head -n 1 <&3 | grep -Eq 'HTTP/1\\.1 (200|302)'"]
       interval: 30s
       timeout: 10s
       retries: 10
@@ -108,9 +108,11 @@ services:
       - OAUTH2_PROXY_INSECURE_OIDC_SKIP_ISSUER_VERIFICATION=true
       - OAUTH2_PROXY_OIDC_EXTRA_AUDIENCES=https://${STACK_FQDN}:8444/keycloak/realms/comfyui
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:4180/oauth2/ping"]
+      # The oauth2-proxy image is very minimal (no shell, no wget/curl).
+      # Use a shell-less command that exists in the image.
+      test: ["CMD", "/bin/oauth2-proxy", "--version"]
       interval: 30s
-      timeout: 10s
+      timeout: 5s
       retries: 3
     depends_on:
       - keycloak
@@ -155,18 +157,22 @@ services:
       - "${NGINX_SSL_PORT:-8444}:443"  # HTTPS - only exposed port
     volumes:
       - ./nginx.conf.template:/etc/nginx/nginx.conf.template:ro
+      - ./tools/nginx-generate-htpasswd.sh:/docker-entrypoint.d/10-nginx-generate-htpasswd.sh:ro
       - ./tools/nginx-envsubst.sh:/docker-entrypoint.d/99-nginx-envsubst.sh:ro
       - ./tools/healthcheck-ingress.sh:/app/healthcheck-ingress.sh:ro
-      - ${HTPASSWD_FILE:-./.htpasswd}:/etc/nginx/.htpasswd:ro
       - ./ssl:/etc/ssl/certs/localhost:ro
     networks:
       - comfyui-net
     environment:
       - STACK_FQDN=${STACK_FQDN:-_}
+      - NGINX_BASIC_AUTH_USER=${NGINX_BASIC_AUTH_USER:-admin}
+      - NGINX_BASIC_AUTH_PASSWORD=${NGINX_BASIC_AUTH_PASSWORD:-}
       # Default to local services.
       # NOTE: if pointing at a GPU worker host, use the host-published ports (Ollama 11434, ComfyUI 8188).
       - OLLAMA_UPSTREAM=${OLLAMA_UPSTREAM:-ollama:11434}
-      - COMFYUI_UPSTREAM=${COMFYUI_UPSTREAM:-comfyui:18188}
+      - COMFYUI_UPSTREAM=${COMFYUI_UPSTREAM:-comfyui:8188}
+      - OPENWEBUI_UPSTREAM=${OPENWEBUI_UPSTREAM:-openwebui:8080}
+      - PIPELINES_UPSTREAM=${PIPELINES_UPSTREAM:-openwebui-pipelines:9099}
       - OAUTH2_PROXY_UPSTREAM=${OAUTH2_PROXY_UPSTREAM:-oauth2-proxy:4180}
       - PROBE_OLLAMA=${PROBE_OLLAMA:-0}
       - PROBE_COMFYUI=${PROBE_COMFYUI:-0}
@@ -180,7 +186,7 @@ services:
     healthcheck:
       test: ["CMD", "/app/healthcheck-ingress.sh"]
       interval: 15s
-      timeout: 8s
+      timeout: 20s
       retries: 20
       start_period: 30s
     restart: unless-stopped
@@ -262,7 +268,7 @@ services:
   # (set COMFYUI_UPSTREAM to the GPU worker host:8188) and do not run this service.
   comfyui:
     profiles: ["local-comfyui"]
-    image: ${COMFYUI_IMAGE:-ghcr.io/ai-dock/comfyui:latest}
+    image: ${COMFYUI_IMAGE:-ghcr.io/ai-dock/comfyui:0.3.0}
     networks:
       - comfyui-net
     volumes:
@@ -277,6 +283,10 @@ services:
       - HF_TOKEN=${HF_TOKEN:-}
       - COMFYUI_PATH=${COMFYUI_PATH:-/opt/ComfyUI}
       - TMPDIR=/tmp/comfyui-ollama
+      # ai-dock Caddy/Service Portal gate:
+      # - true (default): unauthenticated requests redirect to /login
+      # - false: allow direct access to ComfyUI endpoints like /view and /prompt
+      - WEB_ENABLE_AUTH=${WEB_ENABLE_AUTH:-true}
     healthcheck:
       test: ["CMD", "/app/healthcheck-comfyui.sh"]
       interval: 30s
