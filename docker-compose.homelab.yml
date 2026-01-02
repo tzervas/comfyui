@@ -163,8 +163,10 @@ services:
       - comfyui-net
     environment:
       - STACK_FQDN=${STACK_FQDN:-_}
-      - OLLAMA_UPSTREAM=${OLLAMA_UPSTREAM:-ollama:11434}
-      - COMFYUI_UPSTREAM=${COMFYUI_UPSTREAM:-comfyui:18188}
+      # Homelab typically proxies to the GPU worker for these.
+      # Override in .env.homelab if your worker host differs.
+      - OLLAMA_UPSTREAM=${OLLAMA_UPSTREAM:-akula-prime:11434}
+      - COMFYUI_UPSTREAM=${COMFYUI_UPSTREAM:-akula-prime:18188}
       - OAUTH2_PROXY_UPSTREAM=${OAUTH2_PROXY_UPSTREAM:-oauth2-proxy:4180}
       - PROBE_OLLAMA=${PROBE_OLLAMA:-0}
       - PROBE_COMFYUI=${PROBE_COMFYUI:-0}
@@ -274,13 +276,13 @@ services:
         reservations:
           cpus: '0.2'
           memory: 128M
-    command: ["python", "-m", "http.server", "5000"]
+    command: ["uvicorn", "code_executor.app:app", "--host", "0.0.0.0", "--port", "5000"]
     cap_drop: [ALL]
     read_only: true
     tmpfs:
       - /tmp:exec,size=100m
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/"]
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
