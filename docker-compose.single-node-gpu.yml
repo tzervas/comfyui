@@ -1,6 +1,6 @@
 services:
   openwebui:
-    image: ${OPENWEBUI_IMAGE:-ghcr.io/open-webui/open-webui:0.3.4}
+    image: ${OPENWEBUI_IMAGE:-ghcr.io/open-webui/open-webui:git-ccd3295-cuda126}
     container_name: openwebui
     env_file:
       - ./config/openwebui.env
@@ -12,15 +12,15 @@ services:
     volumes:
       - openwebui_data:/app/backend/data
       - ./healthcheck-openwebui.sh:/app/healthcheck-openwebui.sh:ro
-    cpus: ${OPENWEBUI_CPUS:-2.0}
-    mem_limit: ${OPENWEBUI_MEM_LIMIT:-3g}
+    cpus: ${OPENWEBUI_CPUS:-1.5}
+    mem_limit: ${OPENWEBUI_MEM_LIMIT:-2g}
     deploy:
       resources:
         limits:
-          cpus: ${OPENWEBUI_CPUS:-2.0}
-          memory: ${OPENWEBUI_MEM_LIMIT_DEPLOY:-3G}
+          cpus: ${OPENWEBUI_CPUS:-1.5}
+          memory: ${OPENWEBUI_MEM_LIMIT_DEPLOY:-2G}
         reservations:
-          cpus: ${OPENWEBUI_CPUS_RESERVE:-1.0}
+          cpus: ${OPENWEBUI_CPUS_RESERVE:-0.5}
           memory: ${OPENWEBUI_MEM_RESERVE_DEPLOY:-1G}
     healthcheck:
       test: ["CMD", "sh", "/app/healthcheck-openwebui.sh"]
@@ -34,7 +34,7 @@ services:
     restart: unless-stopped
 
   pipelines:
-    image: ${PIPELINES_IMAGE:-ghcr.io/open-webui/pipelines:0.3.4}
+    image: ${PIPELINES_IMAGE:-ghcr.io/open-webui/pipelines:git-039f9c5-cuda}
     container_name: openwebui-pipelines
     env_file:
       - ./config/openwebui.env
@@ -213,24 +213,26 @@ services:
       timeout: 10s
       retries: 3
       start_period: 120s
-    cpus: ${OLLAMA_CPUS:-8.0}
-    mem_limit: ${OLLAMA_MEM_LIMIT:-12g}
+    cpus: ${OLLAMA_CPUS:-4.0}
+    mem_limit: ${OLLAMA_MEM_LIMIT:-8g}
     restart: unless-stopped
     deploy:
       resources:
         limits:
-          cpus: ${OLLAMA_CPUS:-8.0}
-          memory: ${OLLAMA_MEM_LIMIT_DEPLOY:-12G}
+          cpus: ${OLLAMA_CPUS:-4.0}
+          memory: ${OLLAMA_MEM_LIMIT_DEPLOY:-8G}
         reservations:
-          cpus: ${OLLAMA_CPUS_RESERVE:-4.0}
-          memory: ${OLLAMA_MEM_RESERVE_DEPLOY:-6G}
+          cpus: ${OLLAMA_CPUS_RESERVE:-2.0}
+          memory: ${OLLAMA_MEM_RESERVE_DEPLOY:-4G}
           devices:
             - driver: nvidia
               count: all
               capabilities: [gpu]
 
   comfyui:
-    image: ${COMFYUI_IMAGE:-ghcr.io/ai-dock/comfyui:0.3.0}
+    build:
+      context: .
+      dockerfile: Dockerfile.comfyui
     container_name: comfyui
     volumes:
       - comfyui_models:/opt/storage
@@ -266,16 +268,16 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
-    cpus: ${COMFYUI_CPUS:-8.0}
-    mem_limit: ${COMFYUI_MEM_LIMIT:-12g}
+    cpus: ${COMFYUI_CPUS:-3.0}
+    mem_limit: ${COMFYUI_MEM_LIMIT:-6g}
     deploy:
       resources:
         limits:
-          cpus: ${COMFYUI_CPUS:-8.0}
-          memory: ${COMFYUI_MEM_LIMIT_DEPLOY:-12G}
+          cpus: ${COMFYUI_CPUS:-3.0}
+          memory: ${COMFYUI_MEM_LIMIT_DEPLOY:-6G}
         reservations:
-          cpus: ${COMFYUI_CPUS_RESERVE:-4.0}
-          memory: ${COMFYUI_MEM_RESERVE_DEPLOY:-6G}
+          cpus: ${COMFYUI_CPUS_RESERVE:-2.0}
+          memory: ${COMFYUI_MEM_RESERVE_DEPLOY:-3G}
           devices:
             - driver: nvidia
               count: all

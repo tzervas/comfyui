@@ -2,16 +2,24 @@
 docker_images:
   openwebui:
     image: ghcr.io/open-webui/open-webui
-    tag: "<set-semver-tag>"  # e.g., 0.3.x
+    tag: "git-ccd3295-cuda126"  # Pinned git commit for CUDA 12.6
   pipelines:
     image: ghcr.io/open-webui/pipelines
-    tag: "<set-semver-tag>"  # e.g., 0.3.x
+    tag: "git-039f9c5-cuda"  # Pinned git commit for CUDA
   comfyui:
-    image: ghcr.io/ai-dock/comfyui
-    tag: "<set-semver-tag>"  # e.g., 0.3.x
+    image: "<local-build>"  # Self-built from official v0.7.0
+    tag: "v0.7.0"
+    source: "https://github.com/comfyanonymous/ComfyUI/releases/tag/v0.7.0"
+    dockerfile: "Dockerfile.comfyui"
   ollama:
     image: ollama/ollama
-    tag: "<set-semver-tag>"  # e.g., 0.5.x
+    tag: "0.5.8"  # Latest stable as of 2026-01-02
+  lollms:
+    image: "<local-build>"  # Phase 2: main branch commit SHA
+    tag: "<TBD>"
+    source: "https://github.com/ParisNeo/lollms-webui"
+    dockerfile: "Dockerfile.lollms"
+    notes: "Deferred to Phase 2 after Ollama+ComfyUI validation"
 
 git_repos:
   comfyui_manager:
@@ -46,4 +54,8 @@ models:
       version: "<version-or-date>"
       source: "<url or registry>"
 
-validated_on: "<set-date>"
+validated_on: "2026-01-02"
+notes: |
+  Phase 1: Custom ComfyUI v0.7.0 + pinned OpenWebUI/Pipelines git tags
+  Resource budget: 12 cores total for single-node GPU stack
+  Phase 2: LoLLMs main-branch integration after validation
