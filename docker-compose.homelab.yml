@@ -163,10 +163,9 @@ services:
       - comfyui-net
     environment:
       - STACK_FQDN=${STACK_FQDN:-_}
-      # Homelab typically proxies to the GPU worker for these.
-      # Override in .env.homelab if your worker host differs.
-      - OLLAMA_UPSTREAM=${OLLAMA_UPSTREAM:-akula-prime:11434}
-      - COMFYUI_UPSTREAM=${COMFYUI_UPSTREAM:-akula-prime:18188}
+      # Default to local services. Override in .env.homelab to point at a GPU worker.
+      - OLLAMA_UPSTREAM=${OLLAMA_UPSTREAM:-ollama:11434}
+      - COMFYUI_UPSTREAM=${COMFYUI_UPSTREAM:-comfyui:18188}
       - OAUTH2_PROXY_UPSTREAM=${OAUTH2_PROXY_UPSTREAM:-oauth2-proxy:4180}
       - PROBE_OLLAMA=${PROBE_OLLAMA:-0}
       - PROBE_COMFYUI=${PROBE_COMFYUI:-0}
@@ -257,6 +256,31 @@ services:
       - model-vault
     restart: unless-stopped
 
+  # ComfyUI (WebUI) - CPU-capable by default on homelab
+  comfyui:
+    image: ${COMFYUI_IMAGE:-ghcr.io/ai-dock/comfyui:latest}
+    networks:
+      - comfyui-net
+    volumes:
+      - comfyui_models:/opt/storage
+      - comfyui_outputs:/opt/ComfyUI/output
+      - comfyui_user_profiles:/opt/ComfyUI/user_profiles
+      - ./comfyui-init.sh:/app/comfyui-init.sh:ro
+      - ./healthcheck-comfyui.sh:/app/healthcheck-comfyui.sh:ro
+      - tmp_trackers:/tmp/comfyui-ollama
+    environment:
+      - COMFYUI_ARGS=--listen 0.0.0.0 --port 18188 --enable-cors-header ${COMFYUI_EXTRA_ARGS:-}
+      - HF_TOKEN=${HF_TOKEN:-}
+      - COMFYUI_PATH=${COMFYUI_PATH:-/opt/ComfyUI}
+      - TMPDIR=/tmp/comfyui-ollama
+    healthcheck:
+      test: ["CMD", "/app/healthcheck-comfyui.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+    restart: unless-stopped
+
   # Code executor sandbox (internal only)
   code_executor:
     build:
@@ -304,4 +328,7 @@ volumes:
   keycloak_db_data:
   langchain_vectorstore:
   langflow_data:
+  comfyui_models:
+  comfyui_outputs:
+  comfyui_user_profiles:
   tmp_trackers:
