@@ -71,7 +71,7 @@
       "lastName": "One",
       "email": "user1@__SSO_EMAIL_DOMAIN__",
       "groups": ["/comfyui-users"],
-      "requiredActions": ["UPDATE_PASSWORD"],
+      "requiredActions": ["UPDATE_PASSWORD", "CONFIGURE_TOTP"],
       "credentials": [
         { "type": "password", "value": "__SSO_USER1_PASS__", "temporary": true }
       ]
@@ -84,7 +84,7 @@
       "lastName": "Two",
       "email": "user2@__SSO_EMAIL_DOMAIN__",
       "groups": ["/comfyui-users"],
-      "requiredActions": ["UPDATE_PASSWORD"],
+      "requiredActions": ["UPDATE_PASSWORD", "CONFIGURE_TOTP"],
       "credentials": [
         { "type": "password", "value": "__SSO_USER2_PASS__", "temporary": true }
       ]

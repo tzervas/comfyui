@@ -163,7 +163,8 @@ services:
       - comfyui-net
     environment:
       - STACK_FQDN=${STACK_FQDN:-_}
-      # Default to local services. Override in .env.homelab to point at a GPU worker.
+      # Default to local services.
+      # NOTE: if pointing at a GPU worker host, use the host-published ports (Ollama 11434, ComfyUI 8188).
       - OLLAMA_UPSTREAM=${OLLAMA_UPSTREAM:-ollama:11434}
       - COMFYUI_UPSTREAM=${COMFYUI_UPSTREAM:-comfyui:18188}
       - OAUTH2_PROXY_UPSTREAM=${OAUTH2_PROXY_UPSTREAM:-oauth2-proxy:4180}
@@ -256,8 +257,11 @@ services:
       - model-vault
     restart: unless-stopped
 
-  # ComfyUI (WebUI) - CPU-capable by default on homelab
+  # ComfyUI (WebUI)
+  # NOTE: This image expects an NVIDIA driver. On the homelab server, prefer GPU-worker mode
+  # (set COMFYUI_UPSTREAM to the GPU worker host:8188) and do not run this service.
   comfyui:
+    profiles: ["local-comfyui"]
     image: ${COMFYUI_IMAGE:-ghcr.io/ai-dock/comfyui:latest}
     networks:
       - comfyui-net

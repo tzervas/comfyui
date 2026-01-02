@@ -23,11 +23,12 @@ fi
 echo "[1/6] Generating secure secrets..."
 OAUTH2_PROXY_COOKIE_SECRET=$(openssl rand -base64 32 | tr -d '\n' | tr '+/' '-_')
 OAUTH2_PROXY_CLIENT_SECRET=$(openssl rand -base64 32 | tr -d '\n' | tr '+/' '-_')
-KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD=$(openssl rand -base64 18 | tr -d '\n' | tr -d '=')
+SSO_DEFAULT_PASSWORD=${SSO_DEFAULT_PASSWORD:-changeme123}
+KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD=${KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD:-$SSO_DEFAULT_PASSWORD}
 KEYCLOAK_DB_PASSWORD=$(openssl rand -base64 18 | tr -d '\n' | tr -d '=')
-SSO_ADMIN_PASS=$(openssl rand -base64 18 | tr -d '\n' | tr -d '=')
-SSO_USER1_PASS=$(openssl rand -base64 18 | tr -d '\n' | tr -d '=')
-SSO_USER2_PASS=$(openssl rand -base64 18 | tr -d '\n' | tr -d '=')
+SSO_ADMIN_PASS=$SSO_DEFAULT_PASSWORD
+SSO_USER1_PASS=$SSO_DEFAULT_PASSWORD
+SSO_USER2_PASS=$SSO_DEFAULT_PASSWORD
 
 # Check if SSO config already exists
 if grep -q "^SSO_ENABLED=" "$ENV_FILE" 2>/dev/null; then
@@ -161,17 +162,19 @@ echo "   Admin:"
 echo "     Email:    admin@homelab.lan"
 echo "     Password: ${SSO_ADMIN_PASS}"
 echo "     Roles:    comfyui_admin"
-echo "     Note:     Will require TOTP setup on first login"
+echo "     Note:     Will require password change + TOTP setup"
 echo
 echo "   User1:"
 echo "     Email:    user1@homelab.lan"
 echo "     Password: ${SSO_USER1_PASS}"
 echo "     Roles:    comfyui_user"
+echo "     Note:     Will require password change + TOTP setup"
 echo
 echo "   User2:"
 echo "     Email:    user2@homelab.lan"
 echo "     Password: ${SSO_USER2_PASS}"
 echo "     Roles:    comfyui_user"
+echo "     Note:     Will require password change + TOTP setup"
 echo
 echo "=========================================="
 echo
