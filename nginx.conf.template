@@ -4,8 +4,8 @@ events {
 
 http {
     # Docker embedded DNS (dynamic service discovery). This prevents stale
-    # upstream IPs when containers are recreated.
-    resolver 127.0.0.11 ipv6=off valid=10s;
+    # upstream IPs when containers are recreated. K8s will use kube-dns/coredns.
+    resolver 127.0.0.11 valid=10s;
     resolver_timeout 2s;
 
     # SSL configuration
@@ -21,55 +21,50 @@ http {
     ssl_verify_client ${MTLS_VERIFY};
     ssl_verify_depth 2;
 
-    # Upstreams (service discovery via Docker DNS by default)
+    # Upstreams (service discovery via Docker DNS / K8s Service DNS)
+    # All services use internal container names; Docker/K8s DNS resolves these
     upstream ollama_backend {
         zone ollama_backend 64k;
-        server ${OLLAMA_UPSTREAM} resolve;
+        server ${OLLAMA_UPSTREAM};
         keepalive 32;
     }
 
     upstream comfyui_backend {
         zone comfyui_backend 64k;
-        server ${COMFYUI_UPSTREAM} resolve;
+        server ${COMFYUI_UPSTREAM};
         keepalive 32;
     }
 
     upstream code_executor_backend {
         zone code_executor_backend 64k;
-        server code_executor:5000 resolve;
+        server code_executor:5000;
         keepalive 16;
     }
 
     upstream langchain_backend {
         zone langchain_backend 64k;
-        server langchain:8000 resolve;
+        server langchain:8000;
         keepalive 32;
     }
 
     upstream langflow_backend {
         zone langflow_backend 64k;
-        server langflow:7860 resolve;
+        server langflow:7860;
         keepalive 32;
-    }
-
-    # OAuth2/OIDC forward auth (oauth2-proxy)
-    upstream oauth2_proxy_backend {
-        zone oauth2_proxy_backend 64k;
-        server ${OAUTH2_PROXY_UPSTREAM} resolve;
-        keepalive 16;
     }
 
     upstream model_vault_backend {
         zone model_vault_backend 64k;
-        server model-vault:8080 resolve;
+        server model-vault:8080;
         keepalive 16;
     }
 
-    upstream keycloak_backend {
-        zone keycloak_backend 64k;
-        server keycloak:8080 resolve;
-        keepalive 16;
-    }
+    # Keycloak upstream commented out until SSO is enabled
+    # upstream keycloak_backend {
+    #     zone keycloak_backend 64k;
+    #     server keycloak:8080;
+    #     keepalive 16;
+    # }
 
     # Gzip compression
     gzip on;
@@ -77,7 +72,7 @@ http {
 
     server {
         listen 80;
-        server_name ${STACK_FQDN};
+        server_name _ homelab.lan;
 
         # Unauthenticated liveness endpoint (used by container healthchecks)
         location = /healthz {
@@ -85,14 +80,14 @@ http {
             return 200 "ok\n";
         }
 
-        # Keycloak IdP (must not be behind AUTH_GATE)
-        location /keycloak/ {
-            proxy_pass http://keycloak_backend;
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto $scheme;
-        }
+        # Keycloak IdP commented out until SSO is enabled
+        # location /keycloak/ {
+        #     proxy_pass http://keycloak_backend;
+        #     proxy_set_header Host $host;
+        #     proxy_set_header X-Real-IP $remote_addr;
+        #     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        #     proxy_set_header X-Forwarded-Proto $scheme;
+        # }
 
         # Landing page
         location = / {
@@ -207,14 +202,14 @@ http {
             return 200 "ok\n";
         }
 
-        # Keycloak IdP (must not be behind AUTH_GATE)
-        location /keycloak/ {
-            proxy_pass http://keycloak_backend;
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto $scheme;
-        }
+        # Keycloak IdP commented out until SSO is enabled
+        # location /keycloak/ {
+        #     proxy_pass http://keycloak_backend;
+        #     proxy_set_header Host $host;
+        #     proxy_set_header X-Real-IP $remote_addr;
+        #     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        #     proxy_set_header X-Forwarded-Proto $scheme;
+        # }
 
         # Landing page
         location = / {

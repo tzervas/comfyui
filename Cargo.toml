@@ -6,6 +6,10 @@ description = "Secure AI model vault service"
 authors = ["ComfyUI/Ollama Stack"]
 license = "MIT"
 
+[[bin]]
+name = "certman"
+path = "src/bin/certman.rs"
+
 [dependencies]
 axum = "0.7"
 tokio = { version = "1.0", features = ["full"] }
@@ -20,3 +24,6 @@ tracing = "0.1"
 tracing-subscriber = "0.3"
 sqlx = { version = "0.7", features = ["sqlite", "runtime-tokio-rustls"] }
 tower-http = { version = "0.5", features = ["auth", "cors", "fs", "trace"] }
+rcgen = "0.12"
+pem = "3.0"
+time = "0.3"

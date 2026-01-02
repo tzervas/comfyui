@@ -1,24 +1,22 @@
+# K8s-ready compose stack for homelab (internal service discovery via Docker DNS)
+name: comfyui-homelab
+
 services:
   # Rust API/Registry Service
   model-vault:
     build:
       context: .
       dockerfile: model-vault-Dockerfile
-    container_name: model-vault
     volumes:
-      - ${MODEL_VAULT_DATA_DIR:-model_vault_data}:/var/lib/model-vault
+      - model_vault_data:/var/lib/model-vault
       - ./config/model-vault.yaml:/app/config/model-vault.yaml:ro
-    # ports:
-    #   - "8081:8080"
-    # environment:
-    #   - MODEL_VAULT_STORAGE_PATH=/var/lib/model-vault
-    #   - MODEL_VAULT_AUTH_TOKEN=${MODEL_VAULT_TOKEN}
-    #   - REGISTRY_SECRET=${REGISTRY_SECRET}
     environment:
-      - MODEL_VAULT_TOKEN=${MODEL_VAULT_TOKEN}
-      - REGISTRY_SECRET=${REGISTRY_SECRET}
-      - MODEL_VAULT_STORAGE__PATH=${MODEL_VAULT_STORAGE__PATH:-/var/lib/model-vault}
-      - MODEL_VAULT_DATABASE__URL=${MODEL_VAULT_DATABASE__URL:-sqlite:/var/lib/model-vault/model-vault.db}
+      - MODEL_VAULT_TOKEN=${MODEL_VAULT_TOKEN}  # TODO: migrate to Docker secret for K8s
+      - REGISTRY_SECRET=${REGISTRY_SECRET}      # TODO: migrate to Docker secret for K8s
+      - MODEL_VAULT_STORAGE__PATH=/var/lib/model-vault
+      - MODEL_VAULT_DATABASE__URL=sqlite:/var/lib/model-vault/model-vault.db
+    networks:
+      - comfyui-net
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 30s
@@ -33,25 +31,53 @@ services:
         reservations:
           cpus: '0.5'
           memory: 512M
-    # healthcheck:
-    #   test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
-    #   interval: 30s
-    #   timeout: 10s
-    #   retries: 3
     restart: unless-stopped
 
+  # Optional SSL/TLS certificate automation
+  cert-init:
+    # K8s migration: Replace with cert-manager ClusterIssuer/Certificate resources
+    build:
+      context: .
+      dockerfile: Dockerfile.certman
+    profiles: ["ssl-auto"]
+    volumes:
+      - ./ssl:/ssl
+    environment:
+      - SSL_AUTO_PROVISION=${SSL_AUTO_PROVISION:-0}
+      - SSL_KEY_TYPE=${SSL_KEY_TYPE:-ecdsa-p384}
+      - SSL_ROOT_VALIDITY_DAYS=${SSL_ROOT_VALIDITY_DAYS:-3650}
+      - SSL_INTERMEDIATE_VALIDITY_DAYS=${SSL_INTERMEDIATE_VALIDITY_DAYS:-1825}
+      - SSL_CERT_VALIDITY_DAYS=${SSL_CERT_VALIDITY_DAYS:-397}
+      - SSL_DOMAIN=${SSL_DOMAIN:-*.homelab.lan}
+      - SSL_AUTO_TRUST=${SSL_AUTO_TRUST:-0}
+    command: |
+      sh -c '
+        if [ "$SSL_AUTO_PROVISION" = "1" ]; then
+          certman init-ca --key-type "$SSL_KEY_TYPE" \
+            --root-validity-days "$SSL_ROOT_VALIDITY_DAYS" \
+            --intermediate-validity-days "$SSL_INTERMEDIATE_VALIDITY_DAYS" || exit 0
+          certman generate-cert --domain "$SSL_DOMAIN" \
+            --validity-days "$SSL_CERT_VALIDITY_DAYS"
+          if [ "$SSL_AUTO_TRUST" = "1" ]; then
+            certman install-trust
+          fi
+        fi
+      '
+
+  # Ingress gateway (only service with host port exposure)
   nginx:
     image: nginx:1.27-alpine
-    container_name: nginx
     ports:
-      - "${NGINX_PORT:-80}:80"  # HTTP
-      - "${NGINX_SSL_PORT:-443}:443"  # HTTPS
+      - "${NGINX_PORT:-8081}:80"      # HTTP - only exposed port
+      - "${NGINX_SSL_PORT:-8444}:443"  # HTTPS - only exposed port
     volumes:
       - ./nginx.conf.template:/etc/nginx/nginx.conf.template:ro
       - ./tools/nginx-envsubst.sh:/docker-entrypoint.d/99-nginx-envsubst.sh:ro
       - ./tools/healthcheck-ingress.sh:/app/healthcheck-ingress.sh:ro
-      - ${HTPASSWD_FILE:-./.htpasswd}:/etc/nginx/.htpasswd:ro  # Optional auth file
-      - ./ssl:/etc/ssl/certs/localhost:ro  # SSL certificates
+      - ${HTPASSWD_FILE:-./.htpasswd}:/etc/nginx/.htpasswd:ro
+      - ./ssl:/etc/ssl/certs/localhost:ro
+    networks:
+      - comfyui-net
     environment:
       - STACK_FQDN=${STACK_FQDN:-_}
       - OLLAMA_UPSTREAM=${OLLAMA_UPSTREAM:-ollama:11434}
@@ -62,6 +88,7 @@ services:
       - SSO_ENABLED=${SSO_ENABLED:-0}
       - KEYCLOAK_ENABLED=${KEYCLOAK_ENABLED:-0}
       - MODEL_VAULT_MODE=${MODEL_VAULT_MODE:-local}
+      - REGISTRY_SECRET=${REGISTRY_SECRET}  # For nginx if checks
     depends_on:
       - model-vault
     healthcheck:
@@ -72,32 +99,34 @@ services:
       start_period: 30s
     restart: unless-stopped
 
+  # OAuth2 proxy for SSO (internal only, no host ports)
   oauth2-proxy:
     image: quay.io/oauth2-proxy/oauth2-proxy:v7.4.0
-    container_name: oauth2-proxy
-    # No host ports; access via ingress if enabled
+    networks:
+      - comfyui-net
     environment:
-      - OAUTH2_PROXY_PROVIDER=google  # Or oidc, but for LAN, perhaps skip
+      - OAUTH2_PROXY_PROVIDER=google
       - OAUTH2_PROXY_CLIENT_ID=dummy
       - OAUTH2_PROXY_CLIENT_SECRET=dummy
       - OAUTH2_PROXY_COOKIE_SECRET=dummy
-      - OAUTH2_PROXY_UPSTREAMS=http://model-vault:8080
+      - OAUTH2_PROXY_UPSTREAMS=http://model-vault:8080  # Use service name
       - OAUTH2_PROXY_HTTP_ADDRESS=0.0.0.0:4180
     restart: unless-stopped
 
+  # LangChain RAG service (internal only)
   langchain:
     build:
       context: .
       dockerfile: Dockerfile.langchain
-    container_name: langchain
+    networks:
+      - comfyui-net
     volumes:
       - langchain_vectorstore:/app/vectorstore
       - ./langchain_app.py:/app/langchain_app.py:ro
-      - ./tools/legacy/healthcheck-langchain.sh:/app/healthcheck-langchain.sh:ro
+      - ./healthcheck-langchain.sh:/app/healthcheck-langchain.sh:ro
       - tmp_trackers:/tmp/comfyui-ollama
-    # No host ports; access via ingress
     environment:
-      - OLLAMA_BASE_URL=http://akula-prime:11434  # Remote Ollama
+      - OLLAMA_BASE_URL=http://akula-prime:11434  # Remote Ollama (can be parameterized)
       - TMPDIR=/tmp/comfyui-ollama
     deploy:
       resources:
@@ -117,11 +146,12 @@ services:
       - model-vault
     restart: unless-stopped
 
+  # LangFlow UI (internal only)
   langflow:
     image: langflowai/langflow:1.0.4
-    container_name: langflow
     user: root
-    # No host ports; access via ingress
+    networks:
+      - comfyui-net
     environment:
       - LANGFLOW_AUTO_LOGIN=False
       - LANGFLOW_SUPERUSER=admin
@@ -141,7 +171,7 @@ services:
     volumes:
       - langflow_data:/app/data
       - ./tools/legacy/langflow-init.sh:/app/langflow-init.sh:ro
-      - ./tools/legacy/healthcheck-langflow.sh:/app/healthcheck-langflow.sh:ro
+      - ./healthcheck-langflow.sh:/app/healthcheck-langflow.sh:ro
       - tmp_trackers:/tmp/comfyui-ollama
     tmpfs:
       - /tmp:exec,size=1G
@@ -155,14 +185,15 @@ services:
       - model-vault
     restart: unless-stopped
 
+  # Code executor sandbox (internal only)
   code_executor:
     build:
       context: .
       dockerfile: Dockerfile.code_executor
-    container_name: code_executor
+    networks:
+      - comfyui-net
     volumes:
       - tmp_trackers:/tmp/comfyui-ollama
-    # No host ports; access via ingress
     environment:
       - TMPDIR=/tmp/comfyui-ollama
     deploy:
@@ -187,8 +218,17 @@ services:
       - model-vault
     restart: unless-stopped
 
+# Custom bridge network for internal service discovery (K8s migration prep)
+networks:
+  comfyui-net:
+    driver: bridge
+    name: comfyui-homelab-net
+
+# Persistent volumes (use external volume for model-vault to match K8s PVC pattern)
 volumes:
   model_vault_data:
+    external: true
+    name: comfyui-homelab-model-vault-data  # External volume for persistence across restarts
   langchain_vectorstore:
   langflow_data:
   tmp_trackers:

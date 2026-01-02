@@ -56,7 +56,8 @@ EOF
   SSO_LOCATIONS=$(cat <<'EOF'
 location = /oauth2/auth {
     internal;
-    proxy_pass http://oauth2_proxy_backend/oauth2/auth;
+    set $oauth2_upstream ${OAUTH2_PROXY_UPSTREAM};
+    proxy_pass http://$oauth2_upstream/oauth2/auth;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-Proto $scheme;
@@ -65,7 +66,8 @@ location = /oauth2/auth {
 }
 
 location /oauth2/ {
-    proxy_pass http://oauth2_proxy_backend;
+    set $oauth2_upstream ${OAUTH2_PROXY_UPSTREAM};
+    proxy_pass http://$oauth2_upstream;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-Proto $scheme;
