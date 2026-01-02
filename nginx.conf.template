@@ -196,6 +196,10 @@ http {
         listen 443 ssl;
         server_name ${STACK_FQDN};
 
+        # Fix redirects to preserve client-facing port when behind Docker port mapping
+        absolute_redirect off;
+        port_in_redirect off;
+
         # Unauthenticated liveness endpoint (used by container healthchecks)
         location = /healthz {
             add_header Content-Type text/plain;
