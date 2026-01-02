@@ -73,9 +73,6 @@ services:
       - KC_HTTP_RELATIVE_PATH=/keycloak
       - KC_PROXY=edge
       - KC_PROXY_HEADERS=xforwarded
-      - KC_HOSTNAME=${STACK_FQDN}
-      - KC_HOSTNAME_PORT=8444
-      - KC_HOSTNAME_PATH=/keycloak
       - KC_HOSTNAME_URL=https://${STACK_FQDN}:8444/keycloak
       - KC_HOSTNAME_BACKCHANNEL_DYNAMIC=true
       - KC_HOSTNAME_STRICT=false
