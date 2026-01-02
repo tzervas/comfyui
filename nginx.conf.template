@@ -206,14 +206,18 @@ http {
             return 200 "ok\n";
         }
 
-        # Keycloak IdP commented out until SSO is enabled
-        # location /keycloak/ {
-        #     proxy_pass http://keycloak_backend;
-        #     proxy_set_header Host $host;
-        #     proxy_set_header X-Real-IP $remote_addr;
-        #     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        #     proxy_set_header X-Forwarded-Proto $scheme;
-        # }
+        # Keycloak IdP - proxy to internal service with HTTPS headers
+        location /keycloak/ {
+            proxy_pass http://keycloak_backend;
+            proxy_set_header Host $http_host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto https;
+            proxy_set_header X-Forwarded-Host $http_host;
+            proxy_buffer_size 128k;
+            proxy_buffers 4 256k;
+            proxy_busy_buffers_size 256k;
+        }
 
         # Landing page
         location = / {
