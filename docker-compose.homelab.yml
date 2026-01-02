@@ -33,6 +33,86 @@ services:
           memory: 512M
     restart: unless-stopped
 
+  # PostgreSQL database for Keycloak
+  keycloak-db:
+    image: postgres:16-alpine
+    profiles: ["sso"]
+    networks:
+      - comfyui-net
+    environment:
+      - POSTGRES_DB=${KEYCLOAK_DB_NAME:-keycloak}
+      - POSTGRES_USER=${KEYCLOAK_DB_USER:-keycloak}
+      - POSTGRES_PASSWORD=${KEYCLOAK_DB_PASSWORD:-keycloak}
+    volumes:
+      - keycloak_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${KEYCLOAK_DB_USER:-keycloak} -d ${KEYCLOAK_DB_NAME:-keycloak}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  # Keycloak Identity Provider
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0.5
+    profiles: ["sso"]
+    networks:
+      - comfyui-net
+    command: ["start-dev", "--import-realm"]
+    depends_on:
+      - keycloak-db
+    volumes:
+      - ./config/keycloak:/opt/keycloak/data/import:ro
+    environment:
+      - KC_DB=postgres
+      - KC_DB_URL_HOST=keycloak-db
+      - KC_DB_URL_DATABASE=${KEYCLOAK_DB_NAME:-keycloak}
+      - KC_DB_USERNAME=${KEYCLOAK_DB_USER:-keycloak}
+      - KC_DB_PASSWORD=${KEYCLOAK_DB_PASSWORD:-keycloak}
+      - KC_HTTP_ENABLED=true
+      - KC_HTTP_RELATIVE_PATH=/keycloak
+      - KC_PROXY=edge
+      - KC_HOSTNAME=${STACK_FQDN}
+      - KC_HOSTNAME_STRICT=false
+      - KC_HOSTNAME_STRICT_HTTPS=false
+      - KEYCLOAK_ADMIN=${KEYCLOAK_BOOTSTRAP_ADMIN_USERNAME:-kcadmin}
+      - KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD:-}
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/9000 && echo -e 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\n\\r\\n' >&3 && cat <&3 | grep -q '200 OK'"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 90s
+    restart: unless-stopped
+
+  # OAuth2 proxy for SSO (internal only, no host ports)
+  oauth2-proxy:
+    image: quay.io/oauth2-proxy/oauth2-proxy:v7.6.0
+    profiles: ["sso"]
+    networks:
+      - comfyui-net
+    command: ["--config=/etc/oauth2-proxy/oauth2-proxy.cfg"]
+    volumes:
+      - ./config/oauth2-proxy/oauth2-proxy.cfg:/etc/oauth2-proxy/oauth2-proxy.cfg:ro
+      - ./config/oauth2-proxy/allowed_emails.txt:/etc/oauth2-proxy/allowed_emails.txt:ro
+    environment:
+      - OAUTH2_PROXY_PROVIDER=oidc
+      - OAUTH2_PROXY_OIDC_ISSUER_URL=${OIDC_ISSUER_URL:-}
+      - OAUTH2_PROXY_CLIENT_ID=${OAUTH2_PROXY_CLIENT_ID:-}
+      - OAUTH2_PROXY_CLIENT_SECRET=${OAUTH2_PROXY_CLIENT_SECRET:-}
+      - OAUTH2_PROXY_COOKIE_SECRET=${OAUTH2_PROXY_COOKIE_SECRET:-}
+      - OAUTH2_PROXY_REDIRECT_URL=${OAUTH2_PROXY_REDIRECT_URL:-}
+      - OAUTH2_PROXY_HTTP_ADDRESS=0.0.0.0:4180
+      - OAUTH2_PROXY_INSECURE_OIDC_ALLOW_UNVERIFIED_EMAIL=true
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:4180/oauth2/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    depends_on:
+      - keycloak
+    restart: unless-stopped
+
   # Optional SSL/TLS certificate automation
   cert-init:
     # K8s migration: Replace with cert-manager ClusterIssuer/Certificate resources
@@ -97,20 +177,6 @@ services:
       timeout: 8s
       retries: 20
       start_period: 30s
-    restart: unless-stopped
-
-  # OAuth2 proxy for SSO (internal only, no host ports)
-  oauth2-proxy:
-    image: quay.io/oauth2-proxy/oauth2-proxy:v7.4.0
-    networks:
-      - comfyui-net
-    environment:
-      - OAUTH2_PROXY_PROVIDER=google
-      - OAUTH2_PROXY_CLIENT_ID=dummy
-      - OAUTH2_PROXY_CLIENT_SECRET=dummy
-      - OAUTH2_PROXY_COOKIE_SECRET=dummy
-      - OAUTH2_PROXY_UPSTREAMS=http://model-vault:8080  # Use service name
-      - OAUTH2_PROXY_HTTP_ADDRESS=0.0.0.0:4180
     restart: unless-stopped
 
   # LangChain RAG service (internal only)
@@ -229,6 +295,7 @@ volumes:
   model_vault_data:
     external: true
     name: comfyui-homelab-model-vault-data  # External volume for persistence across restarts
+  keycloak_db_data:
   langchain_vectorstore:
   langflow_data:
   tmp_trackers:

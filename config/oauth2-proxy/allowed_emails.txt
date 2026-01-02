@@ -1,3 +1,3 @@
-# One email per line. When enabled, only these users may access.
-# Example:
-# admin@example.com
+admin@homelab.lan
+user1@homelab.lan
+user2@homelab.lan
