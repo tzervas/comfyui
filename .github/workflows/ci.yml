@@ -2,10 +2,20 @@ name: CI/CD Pipeline
 
 # Manual only — no push/pull_request CI triggers
 on:
+  push:
+    branches:
+      - main
+      - dev
+      - develop
+  pull_request:
+    branches:
+      - main
+      - dev
+      - develop
   workflow_dispatch:
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, podman]
 
     steps:
     - uses: actions/checkout@v4
@@ -43,7 +53,7 @@ jobs:
         path: test-logs/
 
   lint:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, podman]
 
     steps:
     - uses: actions/checkout@v4
