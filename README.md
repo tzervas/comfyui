@@ -1,5 +1,10 @@
 # ComfyUI + Ollama Dual-Host AI Stack
 
+<!-- FLEET-BADGES:BEGIN -->
+[![CI](https://github.com/tzervas/comfyui/actions/workflows/fleet-ci.yml/badge.svg?branch=main)](https://github.com/tzervas/comfyui/actions/workflows/fleet-ci.yml?query=branch%3Amain)
+[![Security](https://github.com/tzervas/comfyui/actions/workflows/fleet-security.yml/badge.svg?branch=main)](https://github.com/tzervas/comfyui/actions/workflows/fleet-security.yml?query=branch%3Amain)
+<!-- FLEET-BADGES:END -->
+
 Production-ready containerized AI infrastructure with GPU workers and centralized control plane for LAN-based AI/ML workloads.
 
 ## Architecture
